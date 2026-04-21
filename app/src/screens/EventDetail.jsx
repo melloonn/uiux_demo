@@ -1,0 +1,216 @@
+import { useContext, useState, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { AppContext } from '../App.jsx';
+import { EVENTS, VIBE_FALLBACK, PIN_COLOR } from '../data/events.js';
+import { LogisticsCapsule } from '../components/ui/LogisticsCapsule.jsx';
+import { Chip } from '../components/ui/Chip.jsx';
+import { ShareSheet } from '../components/ui/ShareSheet.jsx';
+import { Heart, Share2, ChevronLeft, MapPin } from 'lucide-react';
+
+// CTA bar height — scroll content stops here so it's never hidden under the bar
+const CTA_H = 82;
+
+export default function EventDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { lang, saved, planned, toggleSave, togglePlan } = useContext(AppContext);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(null), 1600); }, []);
+
+  const event = EVENTS.find(ev => ev.id === id);
+  if (!event) return (
+    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+      <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 16, color: '#8A6F4A' }}>Event not found</p>
+      <button onClick={() => navigate(-1)} style={{ padding: '10px 20px', borderRadius: 12, background: '#1A1A1A', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: '"Plus Jakarta Sans"', fontWeight: 700 }}>Go back</button>
+    </div>
+  );
+
+  const t = (obj) => (typeof obj === 'object' ? obj[lang] ?? obj.en : obj);
+  const color = PIN_COLOR[event.category] ?? '#D94F30';
+  const isSaved = saved.has(event.id);
+  const isPlanned = planned.has(event.id);
+  const tags = lang === 'zh' ? event.tagsZh : event.tags;
+
+  return (
+    // Outer — non-scrolling, fills IOSFrame
+    <div style={{ position: 'absolute', inset: 0, background: '#FAF7F2' }}>
+
+      {/* Scrollable content — stops above the CTA bar */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: CTA_H,
+        overflowY: 'auto',
+      }}>
+        {/* Hero */}
+        <div style={{
+          position: 'relative', height: 320,
+          background: VIBE_FALLBACK[event.vibe] ?? VIBE_FALLBACK.warm,
+          backgroundImage: `url(${event.img})`,
+          backgroundSize: 'cover', backgroundPosition: 'center',
+          flexShrink: 0,
+        }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.5) 100%)' }}/>
+
+          {/* Back button */}
+          <button
+            onClick={() => navigate(-1)}
+            style={{
+              position: 'absolute', top: 58, left: 16,
+              width: 40, height: 40, borderRadius: '50%',
+              background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <ChevronLeft size={20} color="#fff" />
+          </button>
+
+          {/* Share icon */}
+          <button
+            onClick={() => setShareOpen(true)}
+            style={{
+              position: 'absolute', top: 58, right: 16,
+              width: 40, height: 40, borderRadius: '50%',
+              background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+          >
+            <Share2 size={18} color="#fff" />
+          </button>
+
+          {/* Category badge */}
+          <div style={{
+            position: 'absolute', bottom: 16, left: 16,
+            padding: '5px 12px', borderRadius: 9999,
+            background: color,
+            fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 800, color: '#fff',
+            textTransform: 'uppercase', letterSpacing: 0.8,
+          }}>
+            {event.category}
+          </div>
+        </div>
+
+        {/* Body content */}
+        <div style={{ padding: '24px 20px 20px' }}>
+          <h1 style={{
+            margin: '0 0 6px',
+            fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
+            fontSize: 26, fontWeight: 900, letterSpacing: -0.6, lineHeight: 1.1, color: '#1A1A1A',
+          }}>
+            {t(event.title)}
+          </h1>
+
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16,
+            fontFamily: '"Plus Jakarta Sans", system-ui', fontSize: 14, fontWeight: 500, color: '#8A6F4A',
+          }}>
+            <MapPin size={14} color="#D94F30" />
+            {t(event.subtitle)}
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <LogisticsCapsule
+              dist={event.dist} stops={event.stops}
+              price={event.price} priceZh={event.priceZh}
+              free={event.free} lang={lang}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+            {tags.map(tag => <Chip key={tag} label={tag} />)}
+          </div>
+
+          <div style={{ height: 1, background: 'rgba(26,15,10,0.08)', marginBottom: 20 }} />
+
+          <p style={{
+            fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
+            fontSize: 15, fontWeight: 500, color: '#3A2E22',
+            lineHeight: 1.65, margin: '0 0 24px', letterSpacing: -0.1,
+          }}>
+            {t(event.description)}
+          </p>
+
+          {/* Host row */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '14px 0',
+            borderTop: '1px solid rgba(26,15,10,0.08)',
+            borderBottom: '1px solid rgba(26,15,10,0.08)',
+          }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #E8B04B, #D94F30)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 800, color: '#fff',
+            }}>{event.host.charAt(0)}</div>
+            <div>
+              <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700, color: '#8A6F4A', letterSpacing: 0.8, textTransform: 'uppercase' }}>Hosted by</div>
+              <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>{event.host}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA bar — position:absolute within IOSFrame, never fixed to viewport */}
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 30,
+        height: CTA_H,
+        padding: '12px 20px 20px',
+        background: 'rgba(250,247,242,0.97)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        borderTop: '1px solid rgba(26,15,10,0.08)',
+        display: 'flex', gap: 10,
+      }}>
+        <button
+          onClick={() => toggleSave(event.id)}
+          style={{
+            width: 50, height: 50, borderRadius: 14,
+            background: isSaved ? 'rgba(217,79,48,0.1)' : 'rgba(26,15,10,0.06)',
+            border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}
+        >
+          <Heart size={22} fill={isSaved ? '#D94F30' : 'none'} color={isSaved ? '#D94F30' : '#1A1A1A'} />
+        </button>
+        <button
+          onClick={() => togglePlan(event.id)}
+          style={{
+            flex: 1, height: 50, borderRadius: 14,
+            background: isPlanned ? '#E8B04B' : '#1A1A1A',
+            color: '#fff', border: 'none', cursor: 'pointer',
+            fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
+            fontSize: 15, fontWeight: 800, letterSpacing: -0.2,
+          }}
+        >
+          {isPlanned
+            ? (lang === 'zh' ? '已加入計畫 ✓' : 'Added to Plan ✓')
+            : (lang === 'zh' ? '加入計畫' : 'Add to Plan')}
+        </button>
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'absolute', bottom: 96, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 90, background: 'rgba(26,15,10,0.88)',
+          backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+          color: '#fff', fontFamily: '"Plus Jakarta Sans"', fontSize: 13, fontWeight: 700,
+          padding: '10px 20px', borderRadius: 12, whiteSpace: 'nowrap', pointerEvents: 'none',
+        }}>{toast}</div>
+      )}
+
+      {/* Share sheet */}
+      {shareOpen && (
+        <ShareSheet
+          event={event}
+          lang={lang}
+          onClose={() => setShareOpen(false)}
+          onToast={showToast}
+        />
+      )}
+    </div>
+  );
+}

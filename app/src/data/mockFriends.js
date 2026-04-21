@@ -1,0 +1,33 @@
+export const FRIENDS = [
+  { id: 'emma',   name: 'Emma Liu',    initials: 'EL', color: '#5B4B8A', relationship: 'Close friend',   lastSeen: '2m ago',   sharedPlans: 3 },
+  { id: 'mia',    name: 'Mia Lin',     initials: 'ML', color: '#D94F30', relationship: 'Close friend',   lastSeen: '5m ago',   sharedPlans: 5 },
+  { id: 'claire', name: 'Claire Wu',   initials: 'CW', color: '#7FA491', relationship: 'Close friend',   lastSeen: '30m ago',  sharedPlans: 4 },
+  { id: 'jason',  name: 'Jason Chen',  initials: 'JC', color: '#E8B04B', relationship: 'Friend',         lastSeen: '1h ago',   sharedPlans: 1 },
+  { id: 'sophia', name: 'Sophia Wang', initials: 'SW', color: '#6B8AAD', relationship: 'Friend',         lastSeen: '3h ago',   sharedPlans: 2 },
+  { id: 'kevin',  name: 'Kevin Huang', initials: 'KH', color: '#8B5E3C', relationship: 'Friend',         lastSeen: 'Yesterday', sharedPlans: 0 },
+  { id: 'alex',   name: 'Alex Tsai',   initials: 'AT', color: '#4A7B6F', relationship: 'Acquaintance',   lastSeen: '2d ago',   sharedPlans: 1 },
+  { id: 'ryan',   name: 'Ryan Ho',     initials: 'RH', color: '#A0522D', relationship: 'Acquaintance',   lastSeen: '1d ago',   sharedPlans: 2 },
+];
+
+export const FOLLOWING = [
+  { id: 'huashan',         type: 'venue', name: 'Huashan 1914 Creative Park', category: 'market',    followers: '42k' },
+  { id: 'revolver',        type: 'venue', name: 'Revolver Taipei',            category: 'live',      followers: '18k' },
+  { id: 'longshan-temple', type: 'venue', name: 'Longshan Temple',            category: 'festival',  followers: '95k' },
+  { id: 'raohe-market',    type: 'venue', name: 'Raohe Street Night Market',  category: 'market',    followers: '61k' },
+  { id: 'daan-park',       type: 'venue', name: "Da'an Forest Park",          category: 'market',    followers: '33k' },
+  { id: 'ximen-bid',       type: 'venue', name: 'Ximending BID',              category: 'live',      followers: '27k' },
+  { id: 'taipei-expo',     type: 'venue', name: 'Taipei Expo Park',           category: 'exhibition', followers: '15k' },
+  { id: 'eslite',          type: 'venue', name: 'Eslite Spectrum Songyan',    category: 'exhibition', followers: '38k' },
+  { id: 'spot',            type: 'venue', name: 'Spot Taipei Film House',     category: 'exhibition', followers: '12k' },
+  { id: 'moca',            type: 'venue', name: 'MoCA Taipei',                category: 'exhibition', followers: '22k' },
+  { id: 'riverside-music', type: 'venue', name: 'Riverside Live Music',       category: 'live',      followers: '9k'  },
+  { id: 'shida-market',    type: 'venue', name: 'Shida Night Market',         category: 'market',    followers: '44k' },
+  { id: 'new-taipei-tourism', type: 'host', name: 'New Taipei Tourism',       category: 'festival',  followers: '31k' },
+  { id: 'taipei-city-office', type: 'host', name: 'Taipei City Office',       category: 'festival',  followers: '88k' },
+  { id: 'sunset-rollercoaster', type: 'host', name: 'Sunset Rollercoaster',   category: 'live',      followers: '55k' },
+  { id: 'huashan-events',  type: 'host', name: 'Huashan Events',              category: 'market',    followers: '7k'  },
+  { id: 'daan-assoc',      type: 'host', name: "Da'an Park Association",       category: 'market',    followers: '5k'  },
+  { id: 'ximen-biz',       type: 'host', name: 'Ximending Business Circle',   category: 'live',      followers: '11k' },
+  { id: 'taipei-jazz',     type: 'host', name: 'Taipei Jazz Festival',        category: 'live',      followers: '19k' },
+  { id: 'craft-tw',        type: 'host', name: 'Craft Taiwan',                category: 'market',    followers: '8k'  },
+];

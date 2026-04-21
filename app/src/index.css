@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand palette */
+  --color-temple-red: #D94F30;
+  --color-lantern-gold: #E8B04B;
+  --color-ink: #1A1A1A;
+  --color-rice: #FAF7F2;
+  --color-jade: #7FA491;
+  --color-live-music: #5B4B8A;
+  --color-exhibition: #6B6B6B;
+  --color-burnt-sienna: #8B4A2F;
+
+  /* Semantic / map */
+  --color-surface: #F2EDE6;
+  --color-surface-alt: #EFE9DE;
+  --color-map-land: #F2E7D5;
+  --color-map-water: #B8D0CC;
+
+  /* Typography */
+  --font-family-sans: 'Plus Jakarta Sans', 'Noto Sans TC', system-ui, sans-serif;
+}
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+    font-family: var(--font-family-sans);
+    background: var(--color-surface-alt);
+    color: var(--color-ink);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Hide scrollbars globally */
+  ::-webkit-scrollbar { display: none; }
+  * { scrollbar-width: none; }
+}

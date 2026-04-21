@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>CultureFlow · Feed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Noto+Sans+TC:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Plus Jakarta Sans', 'Noto Sans TC', system-ui, sans-serif;
+    background: #E9E4DB;
+    color: #1A1A1A;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    display: grid;
+    place-items: center;
+    padding: 36px 16px;
+    background:
+      radial-gradient(1200px 800px at 20% -10%, #F4E4C9 0%, transparent 55%),
+      radial-gradient(900px 600px at 110% 110%, #F6D4C4 0%, transparent 55%),
+      #EFE9DE;
+  }
+  .device-wrap {
+    position: relative;
+  }
+  /* Tweaks panel */
+  .tweaks {
+    position: fixed; right: 16px; bottom: 16px;
+    width: 280px; padding: 18px; border-radius: 22px;
+    background: rgba(26,26,26,0.92);
+    backdrop-filter: blur(22px);
+    color: #fff; font-family: 'Plus Jakarta Sans', system-ui;
+    box-shadow: 0 22px 60px rgba(0,0,0,0.3);
+    z-index: 100;
+    display: none;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .tweaks.on { display: block; }
+  .tweaks h3 { margin: 0 0 14px; font-size: 13px; letter-spacing: 1.2px;
+    text-transform: uppercase; color: rgba(255,255,255,0.6); font-weight: 700; }
+  .tweaks label { display: block; font-size: 12px; font-weight: 600;
+    margin-bottom: 6px; color: rgba(255,255,255,0.85); }
+  .tweak-row { margin-bottom: 14px; }
+  .seg { display: flex; gap: 2px; padding: 2px; border-radius: 100px;
+    background: rgba(255,255,255,0.08); }
+  .seg button { flex: 1; padding: 7px 8px; border: none; background: transparent;
+    color: rgba(255,255,255,0.7); font-family: inherit; font-size: 11px;
+    font-weight: 600; border-radius: 100px; cursor: pointer; letter-spacing: -0.1px; }
+  .seg button.on { background: #D94F30; color: #fff; }
+  input[type=range] { width: 100%; accent-color: #E8B04B; }
+</style>
+</head>
+<body>
+
+<div class="device-wrap" id="root"></div>
+
+<div class="tweaks" id="tweaks">
+  <h3>Tweaks</h3>
+  <div class="tweak-row">
+    <label>Scrim intensity</label>
+    <input type="range" id="tw-scrim" min="0.4" max="1.2" step="0.05"/>
+  </div>
+  <div class="tweak-row">
+    <label>Title weight</label>
+    <div class="seg" id="tw-bold">
+      <button data-v="false">Regular bold</button>
+      <button data-v="true">Extra bold</button>
+    </div>
+  </div>
+  <div class="tweak-row">
+    <label>Image motion</label>
+    <div class="seg" id="tw-motion">
+      <button data-v="true">Ken Burns</button>
+      <button data-v="false">Static</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="feed.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "scrim": 1,
+  "bold": true,
+  "motion": true
+}/*EDITMODE-END*/;
+
+function App() {
+  const [tweaks, setTweaks] = React.useState(TWEAK_DEFAULTS);
+
+  // scaled iPhone frame — the ios device frame with our Feed as its content
+  return (
+    <div style={{ position: 'relative' }}>
+      <IOSDevice width={390} height={844} dark={true} title={undefined}>
+        <Feed tweaks={tweaks}/>
+      </IOSDevice>
+      <EditMode tweaks={tweaks} setTweaks={setTweaks}/>
+    </div>
+  );
+}
+
+function EditMode({ tweaks, setTweaks }) {
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      if (!e.data) return;
+      if (e.data.type === '__activate_edit_mode') {
+        document.getElementById('tweaks').classList.add('on');
+      } else if (e.data.type === '__deactivate_edit_mode') {
+        document.getElementById('tweaks').classList.remove('on');
+      }
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+    const scrim = document.getElementById('tw-scrim');
+    scrim.value = tweaks.scrim;
+    scrim.oninput = (e) => {
+      const v = parseFloat(e.target.value);
+      setTweaks(t => ({ ...t, scrim: v }));
+      window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { scrim: v } }, '*');
+    };
+    ['bold','motion'].forEach(key => {
+      const group = document.getElementById('tw-' + key);
+      const update = () => {
+        [...group.children].forEach(btn => {
+          btn.classList.toggle('on', (btn.dataset.v === 'true') === !!tweaks[key]);
+        });
+      };
+      update();
+      [...group.children].forEach(btn => {
+        btn.onclick = () => {
+          const v = btn.dataset.v === 'true';
+          setTweaks(t => ({ ...t, [key]: v }));
+          window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [key]: v } }, '*');
+          update();
+        };
+      });
+    });
+
+    return () => window.removeEventListener('message', onMsg);
+  // eslint-disable-next-line
+  }, [tweaks]);
+  return null;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+</body>
+</html>
