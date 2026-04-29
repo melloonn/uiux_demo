@@ -4,7 +4,7 @@ import { AppContext } from '../App.jsx';
 import { TabBar } from '../components/layout/TabBar.jsx';
 import { Chip } from '../components/ui/Chip.jsx';
 import { EVENTS, VIBE_FALLBACK } from '../data/events.js';
-import { Heart, CalendarDays, MapPin, Share2, ChevronUp } from 'lucide-react';
+import { Bookmark, CalendarDays, MapPin, Share2, ChevronUp, ChevronRight } from 'lucide-react';
 import { GlobeToggle } from '../components/ui/GlobeToggle.jsx';
 import { ShareSheet } from '../components/ui/ShareSheet.jsx';
 
@@ -35,7 +35,7 @@ function Logo({ color = '#fff', onClick }) {
   );
 }
 
-function ActionBtn({ icon, label, onClick }) {
+function ActionBtn({ icon, label, onClick, active = false }) {
   return (
     <button onClick={onClick} style={{
       background: 'none', border: 'none', padding: 0, cursor: 'pointer',
@@ -43,55 +43,61 @@ function ActionBtn({ icon, label, onClick }) {
     }}>
       <div style={{
         width: 50, height: 50, borderRadius: '50%',
-        background: 'rgba(0,0,0,0.28)',
+        background: active ? 'rgba(217,79,48,0.55)' : 'rgba(0,0,0,0.28)',
         backdropFilter: 'blur(14px) saturate(160%)',
         WebkitBackdropFilter: 'blur(14px) saturate(160%)',
-        border: '1px solid rgba(255,255,255,0.18)',
+        border: active ? '1.5px solid rgba(255,255,255,0.45)' : '1px solid rgba(255,255,255,0.18)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 4px 18px rgba(0,0,0,0.25)',
+        boxShadow: active ? '0 4px 18px rgba(217,79,48,0.45)' : '0 4px 18px rgba(0,0,0,0.25)',
+        transition: 'background 0.2s, box-shadow 0.2s',
       }}>
         {icon}
       </div>
       <span style={{
-        fontFamily: '"Plus Jakarta Sans", system-ui',
+        fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
         fontSize: 11, fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.5)', letterSpacing: 0.1,
       }}>{label}</span>
     </button>
   );
 }
 
-function FeedSlide({ ev, lang, active, idx, total, saved, planned, onSave, onPlan, onMap, onShare }) {
+function FeedSlide({ ev, lang, active, idx, total, saved, planned, onSave, onPlan, onMap, onShare, onDetail }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const tags = lang === 'zh' ? ev.tagsZh : ev.tags;
   const title = lang === 'zh' ? ev.title.zh : ev.title.en;
   const subtitle = lang === 'zh' ? ev.subtitle.zh : ev.subtitle.en;
 
   return (
-    <div style={{
-      scrollSnapAlign: 'start',
-      position: 'relative', width: '100%', height: '100%',
-      flexShrink: 0, overflow: 'hidden', background: '#000',
-    }}>
-      {/* Hero */}
+    <div
+      onClick={onDetail}
+      style={{
+        scrollSnapAlign: 'start',
+        position: 'relative', width: '100%', height: '100%',
+        flexShrink: 0, overflow: 'hidden', background: '#000',
+        cursor: 'pointer',
+      }}
+    >
+      {/* Hero — prioritize image loading, always fill slide */}
       <div style={{ position: 'absolute', inset: 0, background: VIBE_FALLBACK[ev.vibe] ?? VIBE_FALLBACK.warm }}>
         <img
-          src={ev.img} alt=""
+          src={ev.img} alt={title}
           onLoad={() => setImgLoaded(true)}
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             objectFit: 'cover',
             opacity: imgLoaded ? 1 : 0,
-            transition: 'opacity 0.6s ease',
-            transform: active ? 'scale(1.04)' : 'scale(1)',
+            transition: 'opacity 0.45s ease',
+            transform: active ? 'scale(1.06)' : 'scale(1.02)',
+            transition: 'opacity 0.45s ease, transform 6s ease',
           }}
         />
       </div>
 
       {/* Scrims */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 160, background: 'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 100%)', pointerEvents: 'none' }}/>
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '58%', background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(10,5,3,0.4) 45%, rgba(10,5,3,0.88) 100%)', pointerEvents: 'none' }}/>
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '62%', background: 'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(8,3,1,0.45) 42%, rgba(8,3,1,0.92) 100%)', pointerEvents: 'none' }}/>
 
-      {/* Left content rail */}
+      {/* Left content rail — tap to open detail */}
       <div style={{ position: 'absolute', left: 20, right: 92, bottom: 108, color: '#fff' }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 14,
@@ -105,32 +111,47 @@ function FeedSlide({ ev, lang, active, idx, total, saved, planned, onSave, onPla
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 10, fontWeight: 800, color: '#fff',
           }}>{ev.host.charAt(0)}</div>
-          <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11.5, fontWeight: 600, letterSpacing: -0.1 }}>{ev.host}</span>
+          <span style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui', fontSize: 11.5, fontWeight: 600, letterSpacing: -0.1 }}>{ev.host}</span>
         </div>
         <h2 style={{
           margin: '0 0 6px', fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
-          fontSize: 30, fontWeight: 900, lineHeight: 1.05, letterSpacing: -0.9,
-          textShadow: '0 2px 14px rgba(0,0,0,0.45)',
+          fontSize: 28, fontWeight: 900, lineHeight: 1.1, letterSpacing: -0.6,
+          textShadow: '0 2px 14px rgba(0,0,0,0.55)',
         }}>{title}</h2>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14,
-          fontFamily: '"Plus Jakarta Sans", system-ui', fontSize: 14, fontWeight: 500,
+          fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui', fontSize: 13, fontWeight: 500,
           color: 'rgba(255,255,255,0.92)', textShadow: '0 1px 3px rgba(0,0,0,0.4)',
         }}>
-          <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#E8B04B', boxShadow: '0 0 8px #E8B04B' }}/>
+          <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#E8B04B', boxShadow: '0 0 8px #E8B04B', flexShrink: 0 }}/>
           {subtitle}
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
           {tags.map(t => <Chip key={t} label={t} />)}
+        </div>
+        {/* Tap hint */}
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '4px 10px', borderRadius: 9999,
+          background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
+          fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
+          fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)',
+        }}>
+          {lang === 'zh' ? '點擊查看詳情' : 'Tap for details'}
+          <ChevronRight size={11} color="rgba(255,255,255,0.85)" />
         </div>
       </div>
 
-      {/* Right action rail */}
-      <div style={{ position: 'absolute', right: 14, bottom: 120, display: 'flex', flexDirection: 'column', gap: 18, alignItems: 'center' }}>
+      {/* Right action rail — stopPropagation so taps here don't open detail */}
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ position: 'absolute', right: 14, bottom: 120, display: 'flex', flexDirection: 'column', gap: 18, alignItems: 'center' }}
+      >
         <ActionBtn
-          icon={<Heart size={24} fill={saved ? '#D94F30' : 'none'} color={saved ? '#D94F30' : '#fff'} />}
-          label={ev.saves}
+          icon={<Bookmark size={24} fill={saved ? '#fff' : 'none'} color='#fff' strokeWidth={saved ? 2.5 : 2} />}
+          label={saved ? (lang === 'zh' ? '已收藏' : 'Saved') : ev.saves}
           onClick={() => onSave(ev.id)}
+          active={saved}
         />
         <ActionBtn
           icon={<CalendarDays size={24} color={planned ? '#E8B04B' : '#fff'} />}
@@ -208,6 +229,11 @@ export default function ReelsFeed() {
     showToast('✨ ' + (lang === 'zh' ? '已刷新推薦' : 'Refreshed with new picks'));
   };
 
+  // Detail button: navigate to event detail page
+  const handleDetail = (eventId) => {
+    navigate(`/event/${eventId}`);
+  };
+
   // Map button: navigate to /map?focus=eventId
   const handleMap = (eventId) => {
     navigate(`/map?focus=${eventId}`);
@@ -275,6 +301,7 @@ export default function ReelsFeed() {
               onSave={toggleSave} onPlan={togglePlan}
               onMap={handleMap}
               onShare={handleShare}
+              onDetail={() => handleDetail(ev.id)}
             />
           </div>
         ))}
