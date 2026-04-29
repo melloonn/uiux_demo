@@ -2,10 +2,11 @@ import { useContext, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppContext } from '../App.jsx';
 import { EVENTS, VIBE_FALLBACK, PIN_COLOR } from '../data/events.js';
+import { FRIENDS } from '../data/mockFriends.js';
 import { LogisticsCapsule } from '../components/ui/LogisticsCapsule.jsx';
 import { Chip } from '../components/ui/Chip.jsx';
 import { ShareSheet } from '../components/ui/ShareSheet.jsx';
-import { Heart, Share2, ChevronLeft, MapPin } from 'lucide-react';
+import { Share2, ChevronLeft, MapPin, Users, Bookmark, UserPlus, X } from 'lucide-react';
 
 // CTA bar height — scroll content stops here so it's never hidden under the bar
 const CTA_H = 82;
@@ -15,6 +16,7 @@ export default function EventDetail() {
   const navigate = useNavigate();
   const { lang, saved, planned, toggleSave, togglePlan } = useContext(AppContext);
   const [shareOpen, setShareOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(null), 1600); }, []);
 
@@ -164,8 +166,10 @@ export default function EventDetail() {
         borderTop: '1px solid rgba(26,15,10,0.08)',
         display: 'flex', gap: 10,
       }}>
+        {/* Bookmark/Save */}
         <button
           onClick={() => toggleSave(event.id)}
+          title={isSaved ? (lang === 'zh' ? '已收藏' : 'Saved') : (lang === 'zh' ? '收藏' : 'Save')}
           style={{
             width: 50, height: 50, borderRadius: 14,
             background: isSaved ? 'rgba(217,79,48,0.1)' : 'rgba(26,15,10,0.06)',
@@ -173,7 +177,20 @@ export default function EventDetail() {
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}
         >
-          <Heart size={22} fill={isSaved ? '#D94F30' : 'none'} color={isSaved ? '#D94F30' : '#1A1A1A'} />
+          <Bookmark size={22} fill={isSaved ? '#D94F30' : 'none'} color={isSaved ? '#D94F30' : '#1A1A1A'} />
+        </button>
+        {/* Invite friends */}
+        <button
+          onClick={() => setInviteOpen(true)}
+          title={lang === 'zh' ? '邀請朋友' : 'Invite friends'}
+          style={{
+            width: 50, height: 50, borderRadius: 14,
+            background: 'rgba(26,15,10,0.06)',
+            border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}
+        >
+          <Users size={20} color="#1A1A1A" />
         </button>
         <button
           onClick={() => togglePlan(event.id)}
@@ -210,6 +227,55 @@ export default function EventDetail() {
           onClose={() => setShareOpen(false)}
           onToast={showToast}
         />
+      )}
+
+      {/* Invite friends sheet */}
+      {inviteOpen && (
+        <>
+          <div onClick={() => setInviteOpen(false)} style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)' }} />
+          <div style={{
+            position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 51,
+            background: 'rgba(255,253,248,0.97)', backdropFilter: 'blur(24px)',
+            borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            padding: '10px 0 32px',
+            boxShadow: '0 -16px 40px rgba(26,15,10,0.18)',
+          }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(26,15,10,0.18)', margin: '6px auto 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 10px' }}>
+              <div>
+                <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 16, fontWeight: 800, color: '#1A1A1A', letterSpacing: -0.3 }}>
+                  {lang === 'zh' ? '邀請朋友一起' : 'Invite friends'}
+                </div>
+                <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, color: '#8A6F4A', marginTop: 2 }}>
+                  {lang === 'zh' ? '讓朋友加入收藏或計畫' : 'Let them save or plan this event too'}
+                </div>
+              </div>
+              <button onClick={() => setInviteOpen(false)} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(26,15,10,0.07)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={14} color="#1A1A1A" />
+              </button>
+            </div>
+            <div style={{ maxHeight: 300, overflowY: 'auto', scrollbarWidth: 'none' }}>
+              {FRIENDS.map(f => (
+                <button key={f.id} onClick={() => {
+                  showToast(lang === 'zh' ? `已邀請 ${f.name}` : `Invited ${f.name}`);
+                  setInviteOpen(false);
+                }} style={{ width: '100%', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: f.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"Plus Jakarta Sans"', fontSize: 13, fontWeight: 800, color: '#fff' }}>
+                    {f.initials}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>{f.name}</div>
+                    <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, color: '#8A6F4A', marginTop: 1 }}>{f.relationship}</div>
+                  </div>
+                  <div style={{ padding: '5px 12px', borderRadius: 9999, background: 'rgba(217,79,48,0.1)', fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 700, color: '#D94F30', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <UserPlus size={12} color="#D94F30" />
+                    {lang === 'zh' ? '邀請' : 'Invite'}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

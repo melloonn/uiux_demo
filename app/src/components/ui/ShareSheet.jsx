@@ -89,6 +89,15 @@ function FriendPickerSheet({ event, lang, onClose, onToast }) {
   );
 }
 
+function LineIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#06C755"/>
+      <path d="M12 4C7.58 4 4 7.1 4 10.93c0 2.45 1.55 4.6 3.88 5.93-.17.6-.64 2.18-.73 2.52-.11.41.15.4.32.29.13-.08 2.08-1.41 2.93-1.98.51.07 1.04.11 1.6.11 4.42 0 8-3.1 8-6.93C20 7.1 16.42 4 12 4z" fill="white"/>
+    </svg>
+  );
+}
+
 export function ShareSheet({ event, lang, onClose, onToast }) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -100,11 +109,27 @@ export function ShareSheet({ event, lang, onClose, onToast }) {
   };
 
   const title = lang === 'zh' ? event.title.zh : event.title.en;
+
+  const shareToLine = () => {
+    const text = lang === 'zh'
+      ? `${title}\nhttps://cultureflow.tw/event/${event.id}`
+      : `Check this out: ${title}\nhttps://cultureflow.tw/event/${event.id}`;
+    window.open(`https://line.me/R/msg/text/?${encodeURIComponent(text)}`, '_blank');
+    onClose();
+  };
+
   const options = [
+    {
+      icon: <LineIcon size={20} />,
+      label: 'LINE',
+      sub: lang === 'zh' ? '分享至 LINE' : 'Share via LINE',
+      action: shareToLine,
+      iconBg: '#06C755',
+    },
     {
       icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
       label: lang === 'zh' ? '傳給朋友' : 'Send to friend',
-      sub: lang === 'zh' ? '直接分享給聯絡人' : 'Share directly with contacts',
+      sub: lang === 'zh' ? '在 CultureFlow 內傳送' : 'Send within CultureFlow',
       action: () => setPickerOpen(true),
     },
     {
@@ -115,7 +140,7 @@ export function ShareSheet({ event, lang, onClose, onToast }) {
     },
     {
       icon: <InstagramIcon size={20} />,
-      label: lang === 'zh' ? '分享到 Instagram 限時動態' : 'Share to Instagram Story',
+      label: lang === 'zh' ? '分享到 Instagram' : 'Share to Instagram Story',
       sub: lang === 'zh' ? '視覺預覽' : 'Visual mockup',
       action: () => { onToast(lang === 'zh' ? '開啟 Instagram…' : 'Opening Instagram…'); onClose(); },
     },
@@ -145,7 +170,7 @@ export function ShareSheet({ event, lang, onClose, onToast }) {
 
         {options.map(opt => (
           <button key={opt.label} onClick={opt.action} style={{ width: '100%', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: opt.iconBg ?? 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
               {opt.icon}
             </div>
             <div>
