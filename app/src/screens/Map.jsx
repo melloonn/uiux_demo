@@ -15,6 +15,33 @@ const MAP_PALETTE = {
   mrtRed: '#D94F30', mrtGreen: '#7FA491', mrtBlue: '#6B8AAD', mrtBrown: '#8B5E3C',
 };
 
+// Category icons — unique symbols so pins are immediately distinguishable
+const CAT_ICON = {
+  festivals:           '★',
+  'night-markets':     '◉',
+  'live-music':        '♫',
+  'temples-heritage':  '⊕',
+  'art-markets':       '◆',
+  exhibitions:         '▲',
+};
+
+// Rough region zones derived from SVG map coordinates
+const REGIONS = [
+  { k: 'north',   en: 'North',   zh: '北部',   color: '#5B4B8A' },
+  { k: 'central', en: 'Central', zh: '中心',   color: '#D94F30' },
+  { k: 'east',    en: 'East',    zh: '東區',   color: '#E8B04B' },
+  { k: 'west',    en: 'West',    zh: '西區',   color: '#7FA491' },
+];
+
+function getRegion(ev) {
+  const x = ev.mapX ?? 200;
+  const y = ev.mapY ?? 400;
+  if (y < 280) return 'north';
+  if (x < 210) return 'west';
+  if (x > 290) return 'east';
+  return 'central';
+}
+
 const USER_POS = { x: 230, y: 390 };
 const DEFAULT_FILTERS = DEFAULT_MAP_FILTERS;
 const ALL_PRICES = ['free', '$', '$$', '$$$'];
@@ -103,7 +130,7 @@ function TaipeiMap({ lang, visibleIds, selectedId, onPinTap, pan, mapStyle }) {
           const visible = visibleIds.has(ev.id);
           const selected = selectedId === ev.id;
           const color = PIN_COLOR[ev.category] ?? '#D94F30';
-          const label = lang === 'zh' ? (ev.labelZh ?? ev.title.zh.slice(0,1)) : ev.title.en.slice(0,1);
+          const label = CAT_ICON[ev.category] ?? '●';
           const size = 36;
           return (
             <g key={ev.id}
@@ -121,8 +148,8 @@ function TaipeiMap({ lang, visibleIds, selectedId, onPinTap, pan, mapStyle }) {
               <g filter="url(#softShadow)" style={{ transform: selected ? 'scale(1.15)' : 'scale(1)', transition: 'transform 0.2s' }}>
                 <path d={`M${-size/2} ${-size/2} L${size/2} ${-size/2} Q${size/2+4} ${-size/2} ${size/2+4} ${-size/2+4} L${size/2+4} ${size/2-4} Q${size/2+4} ${size/2} ${size/2} ${size/2} L4 ${size/2} L0 ${size/2+8} L-4 ${size/2} L${-size/2} ${size/2} Q${-size/2-4} ${size/2} ${-size/2-4} ${size/2-4} L${-size/2-4} ${-size/2+4} Q${-size/2-4} ${-size/2} ${-size/2} ${-size/2} Z`}
                   fill={color} stroke="#fff" strokeWidth="2.5"/>
-                <text y="5" textAnchor="middle" fontFamily="'Plus Jakarta Sans','Noto Sans TC',system-ui"
-                  fontSize={lang==='zh'?16:13} fontWeight="800" fill="#fff">{label}</text>
+                <text y="5" textAnchor="middle" fontFamily="'Plus Jakarta Sans',system-ui"
+                  fontSize="15" fontWeight="800" fill="#fff">{label}</text>
               </g>
             </g>
           );
@@ -159,7 +186,8 @@ export default function MapScreen() {
     const focus = searchParams.get('focus');
     if (focus) setSelectedId(focus);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [cat, setCat] = useState('all');
+  const [activeCats, setActiveCats] = useState(new Set());   // empty = all categories
+  const [activeRegions, setActiveRegions] = useState(new Set()); // empty = all regions
   const [freeOnly, setFreeOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
@@ -202,7 +230,8 @@ export default function MapScreen() {
   const visibleIds = useMemo(() => {
     const q = search.trim().toLowerCase();
     return new Set(EVENTS.filter(ev => {
-      if (cat !== 'all' && ev.category !== cat) return false;
+      if (activeCats.size > 0 && !activeCats.has(ev.category)) return false;
+      if (activeRegions.size > 0 && !activeRegions.has(getRegion(ev))) return false;
       if (freeOnly && !ev.free) return false;
       if (q) {
         const hay = `${ev.title.en} ${ev.title.zh} ${ev.location?.en ?? ''} ${ev.location?.zh ?? ''}`.toLowerCase();
@@ -213,12 +242,11 @@ export default function MapScreen() {
       if (filters.categories.length > 0 && !filters.categories.includes(ev.category)) return false;
       return true;
     }).map(ev => ev.id));
-  }, [cat, freeOnly, search, filters]);
+  }, [activeCats, activeRegions, freeOnly, search, filters]);
 
   const selectedEvent = EVENTS.find(ev => ev.id === selectedId && visibleIds.has(ev.id));
 
   const cats = [
-    { k: 'all',               l: t('All',       '全部'), color: '#1A1A1A' },
     { k: 'festivals',         l: t('Festivals', '節慶'), color: PIN_COLOR.festivals },
     { k: 'night-markets',     l: t('Markets',   '夜市'), color: PIN_COLOR['night-markets'] },
     { k: 'live-music',        l: t('Live',      '演出'), color: PIN_COLOR['live-music'] },
@@ -226,6 +254,17 @@ export default function MapScreen() {
     { k: 'art-markets',       l: t('Art',       '市集'), color: PIN_COLOR['art-markets'] },
     { k: 'exhibitions',       l: t('Exhibits',  '展覽'), color: PIN_COLOR.exhibitions },
   ];
+
+  const toggleCat = (k) => setActiveCats(prev => {
+    const next = new Set(prev);
+    next.has(k) ? next.delete(k) : next.add(k);
+    return next;
+  });
+  const toggleRegion = (k) => setActiveRegions(prev => {
+    const next = new Set(prev);
+    next.has(k) ? next.delete(k) : next.add(k);
+    return next;
+  });
 
   const filterBadgeCount = useMemo(() => {
     let n = 0;
@@ -251,7 +290,7 @@ export default function MapScreen() {
       </div>
 
       {/* Top fade gradient */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 220, zIndex: 15, background: 'linear-gradient(180deg, rgba(250,247,242,0.85) 0%, rgba(250,247,242,0) 100%)', pointerEvents: 'none' }}/>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 260, zIndex: 15, background: 'linear-gradient(180deg, rgba(250,247,242,0.9) 0%, rgba(250,247,242,0.7) 70%, rgba(250,247,242,0) 100%)', pointerEvents: 'none' }}/>
 
       {/* Search bar */}
       <div style={{ position: 'absolute', top: 54, left: 0, right: 0, zIndex: 20, padding: '0 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -304,34 +343,54 @@ export default function MapScreen() {
         </div>
       </div>
 
-      {/* Category chips */}
+      {/* Category chips — multi-select */}
       <div style={{
         position: 'absolute', top: 112, left: 0, right: 0, zIndex: 18,
         padding: '0 14px', display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none',
       }}>
-        {cats.map(c => (
-          <button key={c.k} onClick={() => setCat(c.k)} style={{
+        {/* Clear all chip */}
+        {activeCats.size > 0 && (
+          <button onClick={() => setActiveCats(new Set())} style={{
             flexShrink: 0, height: 34, padding: '0 14px', borderRadius: 9999,
-            background: cat === c.k ? c.color : '#fff',
-            color: cat === c.k ? '#fff' : '#1A1A1A',
+            background: '#1A1A1A', color: '#fff',
             border: 'none', cursor: 'pointer',
             fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
-            fontSize: 13, fontWeight: 700,
-            boxShadow: '0 4px 12px rgba(26,15,10,0.08)',
-            display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s',
+            fontSize: 12, fontWeight: 700,
+            boxShadow: '0 4px 12px rgba(26,15,10,0.15)',
+            display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.2s',
           }}>
-            {c.k !== 'all' && <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat === c.k ? '#fff' : c.color }}/>}
-            {c.l}
+            <X size={11} color="#fff" />
+            {t('Clear', '清除')}
           </button>
-        ))}
+        )}
+        {cats.map(c => {
+          const active = activeCats.has(c.k);
+          return (
+            <button key={c.k} onClick={() => toggleCat(c.k)} style={{
+              flexShrink: 0, height: 34, padding: '0 14px', borderRadius: 9999,
+              background: active ? c.color : '#fff',
+              color: active ? '#fff' : '#1A1A1A',
+              border: active ? `2px solid ${c.color}` : '2px solid transparent',
+              cursor: 'pointer',
+              fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
+              fontSize: 13, fontWeight: 700,
+              boxShadow: active ? `0 4px 14px ${c.color}55` : '0 4px 12px rgba(26,15,10,0.08)',
+              display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s',
+            }}>
+              <span style={{ fontSize: 13 }}>{CAT_ICON[c.k]}</span>
+              {c.l}
+            </button>
+          );
+        })}
         <div style={{ width: 1, alignSelf: 'center', height: 22, background: 'rgba(26,15,10,0.12)', flexShrink: 0 }}/>
         <button onClick={() => setFreeOnly(v => !v)} style={{
           flexShrink: 0, height: 34, padding: '0 14px', borderRadius: 9999,
           background: freeOnly ? '#7FA491' : '#fff', color: freeOnly ? '#fff' : '#1A1A1A',
-          border: 'none', cursor: 'pointer',
+          border: freeOnly ? '2px solid #7FA491' : '2px solid transparent',
+          cursor: 'pointer',
           fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
           fontSize: 13, fontWeight: 700,
-          boxShadow: '0 4px 12px rgba(26,15,10,0.08)',
+          boxShadow: freeOnly ? '0 4px 14px #7FA49155' : '0 4px 12px rgba(26,15,10,0.08)',
           display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s',
         }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: freeOnly ? '#fff' : '#7FA491' }}/>
@@ -339,9 +398,51 @@ export default function MapScreen() {
         </button>
       </div>
 
+      {/* Region chips */}
+      <div style={{
+        position: 'absolute', top: 154, left: 0, right: 0, zIndex: 17,
+        padding: '0 14px', display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none',
+      }}>
+        <span style={{
+          flexShrink: 0, fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
+          fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#8A6F4A',
+          textTransform: 'uppercase', alignSelf: 'center',
+        }}>
+          {t('Area', '地區')}
+        </span>
+        {REGIONS.map(r => {
+          const active = activeRegions.has(r.k);
+          return (
+            <button key={r.k} onClick={() => toggleRegion(r.k)} style={{
+              flexShrink: 0, height: 28, padding: '0 12px', borderRadius: 9999,
+              background: active ? r.color : 'rgba(255,255,255,0.82)',
+              color: active ? '#fff' : '#5A4A35',
+              border: active ? `1.5px solid ${r.color}` : '1.5px solid rgba(26,15,10,0.1)',
+              cursor: 'pointer',
+              fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
+              fontSize: 11, fontWeight: 700,
+              boxShadow: active ? `0 2px 10px ${r.color}44` : '0 2px 8px rgba(26,15,10,0.06)',
+              transition: 'all 0.2s',
+            }}>
+              {lang === 'zh' ? r.zh : r.en}
+            </button>
+          );
+        })}
+        {activeRegions.size > 0 && (
+          <button onClick={() => setActiveRegions(new Set())} style={{
+            flexShrink: 0, height: 28, padding: '0 10px', borderRadius: 9999,
+            background: 'transparent', color: '#8A6F4A',
+            border: 'none', cursor: 'pointer',
+            fontFamily: '"Plus Jakarta Sans"', fontSize: 10, fontWeight: 700,
+          }}>
+            {t('All', '全部')}
+          </button>
+        )}
+      </div>
+
       {/* Nearby label */}
       <div style={{
-        position: 'absolute', left: 16, top: 156, zIndex: 18,
+        position: 'absolute', left: 16, top: 190, zIndex: 18,
         fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
         fontSize: 11, fontWeight: 800, letterSpacing: 1.6,
         color: '#8A6F4A', textTransform: 'uppercase',
@@ -355,7 +456,7 @@ export default function MapScreen() {
       </div>
 
       {/* Language switch */}
-      <div style={{ position: 'absolute', right: 14, top: 154, zIndex: 18 }}>
+      <div style={{ position: 'absolute', right: 14, top: 190, zIndex: 18 }}>
         <GlobeToggle lang={lang} setLang={setLang} />
       </div>
 
