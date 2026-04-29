@@ -1,5 +1,5 @@
-import { createContext, useState, useCallback, useMemo } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { createContext, useState, useCallback, useMemo, useEffect } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { useLanguage } from './hooks/useLanguage.js';
@@ -22,6 +22,7 @@ import Following      from './screens/Following.jsx';
 import Settings       from './screens/Settings.jsx';
 import Saved          from './screens/Saved.jsx';
 import FriendProfile  from './screens/FriendProfile.jsx';
+import Onboarding     from './screens/Onboarding.jsx';
 
 export const AppContext = createContext(null);
 
@@ -63,6 +64,18 @@ function PageWrapper({ children, direction }) {
   );
 }
 
+// Redirect to /onboarding on first launch
+function OnboardingGate() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  useEffect(() => {
+    if (!localStorage.getItem('cf_onboarded') && location.pathname !== '/onboarding') {
+      navigate('/onboarding', { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 function AnimatedRoutes() {
   const location = useLocation();
   const [prevIdx] = useState(() => tabIndex(location.pathname));
@@ -71,9 +84,12 @@ function AnimatedRoutes() {
   const isDetail = DETAIL_PREFIXES.some(p => location.pathname.startsWith(p));
 
   return (
+    <>
+      <OnboardingGate />
     <AnimatePresence mode="wait" initial={false}>
       <PageWrapper key={location.pathname} direction={isDetail ? 'detail' : 'tab'}>
         <Routes location={location}>
+          <Route path="/onboarding"             element={<Onboarding />} />
           <Route path="/"                       element={<Home />} />
           <Route path="/reels"                  element={<ReelsFeed />} />
           <Route path="/map"                    element={<MapScreen />} />
@@ -92,6 +108,7 @@ function AnimatedRoutes() {
         </Routes>
       </PageWrapper>
     </AnimatePresence>
+    </>
   );
 }
 
