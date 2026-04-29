@@ -1,10 +1,10 @@
-import { useContext, useState, useMemo, useRef } from 'react';
+import { useContext, useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../App.jsx';
 import { TabBar } from '../components/layout/TabBar.jsx';
 import { GlobeToggle } from '../components/ui/GlobeToggle.jsx';
 import { EVENTS, PIN_COLOR, CATEGORY_LABEL, VIBE_FALLBACK } from '../data/events.js';
-import { MapPin, Train, AlertTriangle, X, Plus, Sparkles, Share2, CalendarDays } from 'lucide-react';
+import { MapPin, Train, AlertTriangle, X, Plus, Sparkles, Share2, CalendarDays, GripVertical, CheckCircle, ExternalLink } from 'lucide-react';
 
 // Generate 7 days from today
 function buildDateStrip() {
@@ -33,7 +33,7 @@ function transitBetween(ev1, ev2) {
   const dx = (ev1.mapX ?? 195) - (ev2.mapX ?? 195);
   const dy = (ev1.mapY ?? 320) - (ev2.mapY ?? 320);
   const dist = Math.sqrt(dx * dx + dy * dy);
-  const km = (dist * 0.08).toFixed(1); // rough SVG-to-km
+  const km = (dist * 0.08).toFixed(1);
   const mins = Math.round(dist * 0.15 + 5);
   const stops = Math.round(dist / 30);
   const tight = mins < 20;
@@ -61,6 +61,27 @@ function EventThumb({ ev, lang, size = 56 }) {
   );
 }
 
+// Build Google Maps direction URL for an ordered list of events
+function buildGoogleMapsUrl(events, lang) {
+  if (events.length === 0) return null;
+  const locs = events.map(ev => encodeURIComponent(lang === 'zh' ? ev.location.zh : ev.location.en));
+  if (locs.length === 1) return `https://www.google.com/maps/search/?api=1&query=${locs[0]}`;
+  const origin = locs[0];
+  const dest   = locs[locs.length - 1];
+  const waypts = locs.slice(1, -1).join('|');
+  const base   = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}`;
+  return waypts ? `${base}&waypoints=${waypts}` : base;
+}
+
+// Build LINE share URL
+function buildLineShareUrl(events, lang) {
+  const names = events.map(ev => lang === 'zh' ? ev.title.zh : ev.title.en).join(' → ');
+  const text = lang === 'zh'
+    ? `我的 CultureFlow 行程：${names}`
+    : `My CultureFlow itinerary: ${names}`;
+  return `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
+}
+
 export default function MyPlan() {
   const { lang, setLang, saved, planned, togglePlan } = useContext(AppContext);
   const navigate = useNavigate();
@@ -68,31 +89,70 @@ export default function MyPlan() {
   const [activeDateKey, setActiveDateKey] = useState('today');
   const [segment, setSegment] = useState('planned'); // 'planned' | 'saved' | 'past'
   const [showRouteModal, setShowRouteModal] = useState(false);
+  const [pastIds, setPastIds] = useState(new Set());
+
+  // Ordered plan list — synced with planned Set, preserving drag order
+  const [planOrder, setPlanOrder] = useState([]);
+  useEffect(() => {
+    setPlanOrder(prev => {
+      const valid = prev.filter(id => planned.has(id));
+      const added = [...planned].filter(id => !prev.includes(id));
+      return [...valid, ...added];
+    });
+  }, [planned]);
+
   const dateStripRef = useRef(null);
 
-  const plannedEvents = useMemo(() => EVENTS.filter(ev => planned.has(ev.id)), [planned]);
+  const orderedPlanned = useMemo(
+    () => planOrder.map(id => EVENTS.find(ev => ev.id === id)).filter(Boolean),
+    [planOrder]
+  );
   const savedEvents   = useMemo(() => EVENTS.filter(ev => saved.has(ev.id)), [saved]);
-
-  // For now all planned events show under any date filter (mock — real app would use event.date)
-  const filteredPlanned = activeDateKey === 'today' ? plannedEvents : plannedEvents;
+  const pastEvents    = useMemo(() => EVENTS.filter(ev => pastIds.has(ev.id)), [pastIds]);
 
   const t = (en, zh) => lang === 'zh' ? zh : en;
 
-  // Mock AI summary stats
-  const totalKm = plannedEvents.reduce((sum, ev, i, arr) => {
+  // Mark event as attended: remove from plan, add to past
+  const markAttended = (id) => {
+    togglePlan(id);
+    setPastIds(prev => new Set([...prev, id]));
+  };
+
+  // ── Drag-to-reorder ──
+  const dragIdx = useRef(null);
+  const dragOverIdx = useRef(null);
+
+  const handleDragStart = (i) => { dragIdx.current = i; };
+  const handleDragOver  = (e, i) => { e.preventDefault(); dragOverIdx.current = i; };
+  const handleDrop      = () => {
+    if (dragIdx.current === null || dragOverIdx.current === null) return;
+    if (dragIdx.current === dragOverIdx.current) return;
+    const next = [...planOrder];
+    const [moved] = next.splice(dragIdx.current, 1);
+    next.splice(dragOverIdx.current, 0, moved);
+    setPlanOrder(next);
+    dragIdx.current = null;
+    dragOverIdx.current = null;
+  };
+
+  // AI summary stats
+  const totalKm = orderedPlanned.reduce((sum, ev, i, arr) => {
     if (i === 0) return 0;
-    const t = transitBetween(arr[i - 1], ev);
-    return sum + (t ? parseFloat(t.km) : 0);
+    const tr = transitBetween(arr[i - 1], ev);
+    return sum + (tr ? parseFloat(tr.km) : 0);
   }, 0).toFixed(1);
-  const mrtLines = Math.min(plannedEvents.length, 2);
-  const estCost  = plannedEvents.reduce((s, ev) => s + (ev.priceTier === 'free' ? 0 : ev.priceTier === 'budget' ? 150 : 350), 0);
-  const estHrs   = (plannedEvents.length * 1.5 + parseFloat(totalKm) * 0.1).toFixed(0);
+  const mrtLines = Math.min(orderedPlanned.length, 2);
+  const estCost  = orderedPlanned.reduce((s, ev) => s + (ev.priceTier === 'free' ? 0 : ev.priceTier === '$' ? 150 : 350), 0);
+  const estHrs   = (orderedPlanned.length * 1.5 + parseFloat(totalKm) * 0.1).toFixed(0);
 
   const segments = [
     { k: 'planned', labelEn: '📌 Planned', labelZh: '📌 已計畫' },
-    { k: 'saved',   labelEn: '❤️ Saved',   labelZh: '❤️ 已收藏' },
-    { k: 'past',    labelEn: '✅ Past',     labelZh: '✅ 已過去' },
+    { k: 'saved',   labelEn: '🔖 Saved',   labelZh: '🔖 已收藏' },
+    { k: 'past',    labelEn: '✅ Past',     labelZh: '✅ 已參加' },
   ];
+
+  const gmUrl   = buildGoogleMapsUrl(orderedPlanned, lang);
+  const lineUrl = buildLineShareUrl(orderedPlanned, lang);
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#FAF7F2' }}>
@@ -121,39 +181,19 @@ export default function MyPlan() {
         <div style={{ paddingTop: 102, paddingBottom: 100 }}>
 
           {/* Date strip */}
-          <div
-            ref={dateStripRef}
-            style={{
-              display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none',
-              padding: '14px 20px 10px',
-            }}
-          >
+          <div ref={dateStripRef} style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', padding: '14px 20px 10px' }}>
             {DATE_STRIP.map(d => {
               const isActive = activeDateKey === d.key;
               return (
-                <button
-                  key={d.key}
-                  onClick={() => setActiveDateKey(d.key)}
-                  style={{
-                    flexShrink: 0, minWidth: 52, padding: '8px 12px',
-                    borderRadius: 14, border: 'none', cursor: 'pointer',
-                    background: isActive ? '#D94F30' : 'rgba(26,15,10,0.06)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                    transition: 'all 0.18s',
-                  }}
-                >
-                  <span style={{
-                    fontFamily: '"Plus Jakarta Sans"', fontSize: 10, fontWeight: 700,
-                    color: isActive ? 'rgba(255,255,255,0.8)' : '#8A6F4A',
-                    textTransform: 'uppercase',
-                  }}>
+                <button key={d.key} onClick={() => setActiveDateKey(d.key)} style={{
+                  flexShrink: 0, minWidth: 52, padding: '8px 12px', borderRadius: 14, border: 'none', cursor: 'pointer',
+                  background: isActive ? '#D94F30' : 'rgba(26,15,10,0.06)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, transition: 'all 0.18s',
+                }}>
+                  <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 10, fontWeight: 700, color: isActive ? 'rgba(255,255,255,0.8)' : '#8A6F4A', textTransform: 'uppercase' }}>
                     {lang === 'zh' ? d.dayZh : d.dayEn}
                   </span>
-                  <span style={{
-                    fontFamily: '"Plus Jakarta Sans"', fontSize: 18, fontWeight: 900,
-                    color: isActive ? '#fff' : '#1A1A1A',
-                    lineHeight: 1,
-                  }}>
+                  <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 18, fontWeight: 900, color: isActive ? '#fff' : '#1A1A1A', lineHeight: 1 }}>
                     {d.dateNum}
                   </span>
                 </button>
@@ -161,57 +201,39 @@ export default function MyPlan() {
             })}
           </div>
 
-          {/* AI Summary card — only when planned events exist */}
-          {plannedEvents.length > 0 && (
+          {/* AI Summary card */}
+          {orderedPlanned.length > 0 && (
             <div style={{
-              margin: '4px 20px 16px',
-              borderRadius: 18,
+              margin: '4px 20px 16px', borderRadius: 18,
               background: 'linear-gradient(135deg, #FDF5E8 0%, rgba(232,176,75,0.12) 100%)',
-              border: '1px solid rgba(232,176,75,0.25)',
-              padding: '16px 18px',
-              position: 'relative',
+              border: '1px solid rgba(232,176,75,0.25)', padding: '16px 18px', position: 'relative',
             }}>
               <div style={{
-                position: 'absolute', top: 14, right: 14,
-                padding: '3px 8px', borderRadius: 9999,
-                background: 'rgba(232,176,75,0.2)',
-                fontFamily: '"Plus Jakarta Sans"', fontSize: 10, fontWeight: 800,
-                color: '#8A5F00', display: 'flex', alignItems: 'center', gap: 4,
+                position: 'absolute', top: 14, right: 14, padding: '3px 8px', borderRadius: 9999,
+                background: 'rgba(232,176,75,0.2)', fontFamily: '"Plus Jakarta Sans"',
+                fontSize: 10, fontWeight: 800, color: '#8A5F00', display: 'flex', alignItems: 'center', gap: 4,
               }}>
-                <Sparkles size={10} color="#8A5F00" />
-                AI
+                <Sparkles size={10} color="#8A5F00" /> AI
               </div>
-
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5, paddingRight: 40 }}>
                 <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>
-                  {t(`${plannedEvents.length} events planned`, `已規劃 ${plannedEvents.length} 個活動`)}
+                  {t(`${orderedPlanned.length} events planned`, `已規劃 ${orderedPlanned.length} 個活動`)}
                 </div>
                 <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 500, color: '#8A5F00' }}>
-                  {t(`${totalKm} km total travel · ${mrtLines} MRT line${mrtLines !== 1 ? 's' : ''}`, `總移動 ${totalKm} 公里 · ${mrtLines} 條捷運`)}
+                  {t(`${totalKm} km total · ${mrtLines} MRT line${mrtLines !== 1 ? 's' : ''}`, `總移動 ${totalKm} 公里 · ${mrtLines} 條捷運`)}
                 </div>
                 <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 500, color: '#8A5F00' }}>
                   {t(`~NT$${estCost} estimated · ${estHrs} hrs`, `預估 NT$${estCost} · ${estHrs} 小時`)}
                 </div>
-                <div style={{
-                  marginTop: 4, paddingTop: 8,
-                  borderTop: '1px solid rgba(232,176,75,0.2)',
-                  fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 600,
-                  color: '#6B4C00', fontStyle: 'italic',
-                }}>
-                  {t(
-                    'Mostly cultural venues on the east side — comfy walking plan',
-                    '行程以東區文化場所為主 — 步行友善'
-                  )}
+                <div style={{ marginTop: 4, paddingTop: 8, borderTop: '1px solid rgba(232,176,75,0.2)', fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 600, color: '#6B4C00', fontStyle: 'italic' }}>
+                  {t('Drag rows to reorder · tap ✓ to mark attended', '拖動列重新排序 · 點 ✓ 標記已參加')}
                 </div>
               </div>
             </div>
           )}
 
           {/* Segment control */}
-          <div style={{
-            display: 'flex', gap: 0, margin: '0 20px 16px',
-            padding: 4, borderRadius: 14, background: 'rgba(26,15,10,0.07)',
-          }}>
+          <div style={{ display: 'flex', gap: 0, margin: '0 20px 16px', padding: 4, borderRadius: 14, background: 'rgba(26,15,10,0.07)' }}>
             {segments.map(s => (
               <button key={s.k} onClick={() => setSegment(s.k)} style={{
                 flex: 1, padding: '8px 6px', borderRadius: 11, border: 'none', cursor: 'pointer',
@@ -219,8 +241,7 @@ export default function MyPlan() {
                 color: segment === s.k ? '#1A1A1A' : 'rgba(26,15,10,0.45)',
                 fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 700,
                 boxShadow: segment === s.k ? '0 2px 8px rgba(26,15,10,0.1)' : 'none',
-                transition: 'all 0.18s',
-                whiteSpace: 'nowrap',
+                transition: 'all 0.18s', whiteSpace: 'nowrap',
               }}>
                 {lang === 'zh' ? s.labelZh : s.labelEn}
               </button>
@@ -229,7 +250,7 @@ export default function MyPlan() {
 
           {/* ── PLANNED VIEW ── */}
           {segment === 'planned' && (
-            filteredPlanned.length === 0 ? (
+            orderedPlanned.length === 0 ? (
               <div style={{ padding: '60px 20px', textAlign: 'center' }}>
                 <CalendarDays size={40} color="rgba(26,15,10,0.15)" style={{ margin: '0 auto 14px' }} />
                 <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 15, fontWeight: 700, color: '#8A6F4A', margin: '0 0 6px' }}>
@@ -238,41 +259,35 @@ export default function MyPlan() {
                 <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 13, color: '#B09070', margin: '0 0 20px' }}>
                   {t('Add events you want to attend', '加入你想參加的活動')}
                 </p>
-                <button
-                  onClick={() => navigate('/')}
-                  style={{
-                    padding: '12px 28px', borderRadius: 14,
-                    background: '#1A1A1A', color: '#fff', border: 'none', cursor: 'pointer',
-                    fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700,
-                  }}
-                >
+                <button onClick={() => navigate('/')} style={{ padding: '12px 28px', borderRadius: 14, background: '#1A1A1A', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700 }}>
                   {t('Browse events', '探索活動')}
                 </button>
               </div>
             ) : (
               <div style={{ padding: '0 20px' }}>
-                {filteredPlanned.map((ev, i) => {
-                  const transit = i > 0 ? transitBetween(filteredPlanned[i - 1], ev) : null;
+                {orderedPlanned.map((ev, i) => {
+                  const transit = i > 0 ? transitBetween(orderedPlanned[i - 1], ev) : null;
                   const mockTime = `${14 + i}:00`;
                   return (
-                    <div key={ev.id}>
-                      {/* Transit capsule between events */}
+                    <div key={ev.id}
+                      draggable
+                      onDragStart={() => handleDragStart(i)}
+                      onDragOver={(e) => handleDragOver(e, i)}
+                      onDrop={handleDrop}
+                    >
+                      {/* Transit capsule */}
                       {transit && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 4px 28px' }}>
                           <div style={{ width: 1, height: 20, background: 'rgba(26,15,10,0.12)', marginLeft: 3 }} />
                           <div style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '4px 10px', borderRadius: 9999,
+                            display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 9999,
                             background: (transit.tight || transit.far) ? 'rgba(217,79,48,0.08)' : 'rgba(26,15,10,0.05)',
                           }}>
                             {transit.tight || transit.far
                               ? <AlertTriangle size={11} color="#D94F30" />
                               : <Train size={11} color="#8A6F4A" />
                             }
-                            <span style={{
-                              fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700,
-                              color: (transit.tight || transit.far) ? '#D94F30' : '#8A6F4A',
-                            }}>
+                            <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700, color: (transit.tight || transit.far) ? '#D94F30' : '#8A6F4A' }}>
                               {transit.tight
                                 ? t(`Tight — ${transit.mins} min gap`, `緊湊 — ${transit.mins} 分鐘間隔`)
                                 : transit.far
@@ -280,6 +295,17 @@ export default function MyPlan() {
                                   : t(`🚇 ${transit.mins} min · ${transit.km} km`, `🚇 ${transit.mins} 分鐘 · ${transit.km} 公里`)
                               }
                             </span>
+                            {/* Google Maps step link */}
+                            {i > 0 && (
+                              <a
+                                href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(lang === 'zh' ? orderedPlanned[i-1].location.zh : orderedPlanned[i-1].location.en)}&destination=${encodeURIComponent(lang === 'zh' ? ev.location.zh : ev.location.en)}`}
+                                target="_blank" rel="noopener noreferrer"
+                                onClick={e => e.stopPropagation()}
+                                style={{ display: 'flex', alignItems: 'center', color: '#D94F30', textDecoration: 'none' }}
+                              >
+                                <ExternalLink size={10} color="#D94F30" />
+                              </a>
+                            )}
                           </div>
                         </div>
                       )}
@@ -288,10 +314,8 @@ export default function MyPlan() {
                       <div style={{ display: 'flex', gap: 12, marginBottom: 4 }}>
                         {/* Time column */}
                         <div style={{ width: 36, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 4 }}>
-                          <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700, color: '#D94F30' }}>
-                            {mockTime}
-                          </span>
-                          {i < filteredPlanned.length - 1 && (
+                          <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700, color: '#D94F30' }}>{mockTime}</span>
+                          {i < orderedPlanned.length - 1 && (
                             <div style={{ flex: 1, width: 1, background: 'rgba(26,15,10,0.1)', marginTop: 4, minHeight: 20 }} />
                           )}
                         </div>
@@ -300,19 +324,21 @@ export default function MyPlan() {
                         <div
                           onClick={() => navigate(`/event/${ev.id}`)}
                           style={{
-                            flex: 1, background: '#fff', borderRadius: 16,
-                            padding: '12px', marginBottom: 8,
+                            flex: 1, background: '#fff', borderRadius: 16, padding: '12px', marginBottom: 8,
                             boxShadow: '0 4px 14px rgba(26,15,10,0.07)',
                             cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start',
                           }}
                         >
+                          {/* Drag handle */}
+                          <div
+                            onClick={e => e.stopPropagation()}
+                            style={{ display: 'flex', alignItems: 'center', alignSelf: 'center', cursor: 'grab', color: 'rgba(26,15,10,0.25)', flexShrink: 0 }}
+                          >
+                            <GripVertical size={16} />
+                          </div>
                           <EventThumb ev={ev} lang={lang} size={56} />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                              fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"',
-                              fontSize: 14, fontWeight: 800, color: '#1A1A1A',
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
+                            <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 14, fontWeight: 800, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {lang === 'zh' ? ev.title.zh : ev.title.en}
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
@@ -322,16 +348,23 @@ export default function MyPlan() {
                               </span>
                             </div>
                           </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); togglePlan(ev.id); }}
-                            style={{
-                              width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                              background: 'rgba(217,79,48,0.08)', border: 'none', cursor: 'pointer',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                          >
-                            <X size={13} color="#D94F30" />
-                          </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                            {/* Mark attended */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); markAttended(ev.id); }}
+                              title={t('Mark as attended', '標記已參加')}
+                              style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(127,164,145,0.12)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <CheckCircle size={14} color="#7FA491" />
+                            </button>
+                            {/* Remove */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); togglePlan(ev.id); }}
+                              style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(217,79,48,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                              <X size={13} color="#D94F30" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -345,73 +378,32 @@ export default function MyPlan() {
           {segment === 'saved' && (
             savedEvents.length === 0 ? (
               <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 40, marginBottom: 14 }}>🤍</div>
+                <div style={{ fontSize: 40, marginBottom: 14 }}>🔖</div>
                 <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 15, fontWeight: 700, color: '#8A6F4A', margin: '0 0 6px' }}>
-                  {t('Heart events you\'re interested in', '收藏你感興趣的活動')}
+                  {t('Bookmark events you\'re interested in', '收藏你感興趣的活動')}
                 </p>
-                <button
-                  onClick={() => navigate('/')}
-                  style={{
-                    marginTop: 16, padding: '12px 28px', borderRadius: 14,
-                    background: '#1A1A1A', color: '#fff', border: 'none', cursor: 'pointer',
-                    fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700,
-                  }}
-                >
+                <button onClick={() => navigate('/')} style={{ marginTop: 16, padding: '12px 28px', borderRadius: 14, background: '#1A1A1A', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700 }}>
                   {t('Explore', '探索')}
                 </button>
               </div>
             ) : (
-              <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 20px',
-              }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 20px' }}>
                 {savedEvents.map(ev => {
                   const color = PIN_COLOR[ev.category] ?? '#D94F30';
                   const isPlanned = planned.has(ev.id);
                   return (
-                    <div
-                      key={ev.id}
-                      onClick={() => navigate(`/event/${ev.id}`)}
-                      style={{
-                        background: '#fff', borderRadius: 16, overflow: 'hidden',
-                        boxShadow: '0 4px 14px rgba(26,15,10,0.08)', cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{
-                        height: 100, position: 'relative',
-                        background: VIBE_FALLBACK[ev.vibe] ?? VIBE_FALLBACK.warm,
-                        backgroundImage: `url(${ev.img})`, backgroundSize: 'cover', backgroundPosition: 'center',
-                      }}>
+                    <div key={ev.id} onClick={() => navigate(`/event/${ev.id}`)} style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 14px rgba(26,15,10,0.08)', cursor: 'pointer' }}>
+                      <div style={{ height: 100, position: 'relative', background: VIBE_FALLBACK[ev.vibe] ?? VIBE_FALLBACK.warm, backgroundImage: `url(${ev.img})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.45) 100%)' }} />
-                        <div style={{
-                          position: 'absolute', bottom: 6, left: 8,
-                          padding: '2px 7px', borderRadius: 9999, background: color,
-                          fontFamily: '"Plus Jakarta Sans"', fontSize: 9, fontWeight: 800, color: '#fff',
-                        }}>
+                        <div style={{ position: 'absolute', bottom: 6, left: 8, padding: '2px 7px', borderRadius: 9999, background: color, fontFamily: '"Plus Jakarta Sans"', fontSize: 9, fontWeight: 800, color: '#fff' }}>
                           {CATEGORY_LABEL[ev.category]?.[lang] ?? ev.category}
                         </div>
-                        {/* + promote button */}
-                        <button
-                          onClick={(e) => { e.stopPropagation(); if (!isPlanned) togglePlan(ev.id); }}
-                          style={{
-                            position: 'absolute', top: 8, right: 8,
-                            width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                            background: isPlanned ? '#D94F30' : 'rgba(255,255,255,0.9)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                          }}
-                        >
-                          {isPlanned
-                            ? <span style={{ fontSize: 12 }}>✓</span>
-                            : <Plus size={14} color="#1A1A1A" />
-                          }
+                        <button onClick={(e) => { e.stopPropagation(); if (!isPlanned) togglePlan(ev.id); }} style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer', background: isPlanned ? '#D94F30' : 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                          {isPlanned ? <span style={{ fontSize: 12 }}>✓</span> : <Plus size={14} color="#1A1A1A" />}
                         </button>
                       </div>
                       <div style={{ padding: '8px 10px 10px' }}>
-                        <div style={{
-                          fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"',
-                          fontSize: 12, fontWeight: 800, color: '#1A1A1A',
-                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        }}>
+                        <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 12, fontWeight: 800, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {lang === 'zh' ? ev.title.zh : ev.title.en}
                         </div>
                         <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 10, color: '#8A6F4A', marginTop: 2 }}>
@@ -427,47 +419,64 @@ export default function MyPlan() {
 
           {/* ── PAST VIEW ── */}
           {segment === 'past' && (
-            <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: 40, marginBottom: 14 }}>🗓️</div>
-              <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 15, fontWeight: 700, color: '#8A6F4A', margin: 0 }}>
-                {t('No past events yet', '尚無過去活動')}
-              </p>
-              <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 13, color: '#B09070', marginTop: 6 }}>
-                {t('Events you\'ve attended will appear here', '你參加過的活動將顯示在這裡')}
-              </p>
-            </div>
+            pastEvents.length === 0 ? (
+              <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 40, marginBottom: 14 }}>🗓️</div>
+                <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 15, fontWeight: 700, color: '#8A6F4A', margin: 0 }}>
+                  {t('No attended events yet', '尚無已參加的活動')}
+                </p>
+                <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 13, color: '#B09070', marginTop: 6 }}>
+                  {t('Tap ✓ on a planned event to mark it as attended', '在計畫活動上點 ✓ 標記已參加')}
+                </p>
+              </div>
+            ) : (
+              <div style={{ padding: '0 20px' }}>
+                {pastEvents.map(ev => (
+                  <div key={ev.id} onClick={() => navigate(`/event/${ev.id}`)} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 0', cursor: 'pointer', borderBottom: '1px solid rgba(26,15,10,0.06)' }}>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <EventThumb ev={ev} lang={lang} size={52} />
+                      <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.5)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CheckCircle size={20} color="#7FA491" />
+                      </div>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 14, fontWeight: 700, color: '#8A6F4A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {lang === 'zh' ? ev.title.zh : ev.title.en}
+                      </div>
+                      <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, color: '#B09070', marginTop: 2 }}>
+                        {t('Attended ✓', '已參加 ✓')}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           )}
-
         </div>
       </div>
 
       {/* Floating action buttons */}
-      {segment === 'planned' && plannedEvents.length > 0 && (
-        <div style={{
-          position: 'absolute', left: 20, right: 20, bottom: 96,
-          display: 'flex', gap: 10, zIndex: 30,
-        }}>
-          <button
-            onClick={() => setShowRouteModal(true)}
-            style={{
-              flex: 1, height: 48, borderRadius: 14, border: 'none', cursor: 'pointer',
-              background: '#1A1A1A', color: '#fff',
-              fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              boxShadow: '0 4px 20px rgba(26,15,10,0.3)',
-            }}
-          >
+      {segment === 'planned' && orderedPlanned.length > 0 && (
+        <div style={{ position: 'absolute', left: 20, right: 20, bottom: 96, display: 'flex', gap: 10, zIndex: 30 }}>
+          <button onClick={() => setShowRouteModal(true)} style={{
+            flex: 1, height: 48, borderRadius: 14, border: 'none', cursor: 'pointer',
+            background: '#1A1A1A', color: '#fff',
+            fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: '0 4px 20px rgba(26,15,10,0.3)',
+          }}>
             <Sparkles size={16} color="#E8B04B" />
-            {t('Generate route', '規劃路線')}
+            {t('View Route', '查看路線')}
           </button>
-          <button
-            style={{
-              width: 48, height: 48, borderRadius: 14, border: 'none', cursor: 'pointer',
-              background: '#fff', flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 20px rgba(26,15,10,0.12)',
-            }}
-          >
+          {/* Share to LINE */}
+          <a href={lineUrl} target="_blank" rel="noopener noreferrer" style={{
+            width: 48, height: 48, borderRadius: 14, flexShrink: 0, textDecoration: 'none',
+            background: '#06C755', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 20px rgba(6,199,85,0.35)',
+          }}>
+            <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: -0.5 }}>LINE</span>
+          </a>
+          <button style={{ width: 48, height: 48, borderRadius: 14, border: 'none', cursor: 'pointer', background: '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(26,15,10,0.12)' }}>
             <Share2 size={18} color="#1A1A1A" />
           </button>
         </div>
@@ -477,73 +486,73 @@ export default function MyPlan() {
 
       {/* Generate Route Modal */}
       {showRouteModal && (
-        <div
-          onClick={() => setShowRouteModal(false)}
-          style={{
-            position: 'absolute', inset: 0, zIndex: 50,
-            background: 'rgba(0,0,0,0.45)',
-            backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'flex-end',
-          }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: '100%', background: '#FAF7F2', borderRadius: '20px 20px 0 0',
-              padding: '20px 20px 40px',
-            }}
-          >
+        <div onClick={() => setShowRouteModal(false)} style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: '#FAF7F2', borderRadius: '20px 20px 0 0', padding: '20px 20px 40px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
-                <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 18, fontWeight: 800, color: '#1A1A1A' }}>
-                  {t('🪄 Auto Route', '🪄 自動路線')}
-                </div>
-                <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, color: '#8A6F4A', marginTop: 2 }}>
-                  {t('Optimised by proximity & time', '依位置與時間優化')}
-                </div>
+                <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 18, fontWeight: 800, color: '#1A1A1A' }}>{t('🗺 Route Plan', '🗺 路線規劃')}</div>
+                <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, color: '#8A6F4A', marginTop: 2 }}>{t('Optimised by proximity & time', '依位置與時間優化')}</div>
               </div>
               <button onClick={() => setShowRouteModal(false)} style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(26,15,10,0.07)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <X size={15} color="#1A1A1A" />
               </button>
             </div>
 
-            {plannedEvents.map((ev, i) => (
-              <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <div style={{
-                  width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                  background: PIN_COLOR[ev.category] ?? '#D94F30',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 800, color: '#fff',
-                }}>{i + 1}</div>
-                <EventThumb ev={ev} lang={lang} size={40} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 13, fontWeight: 700, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {lang === 'zh' ? ev.title.zh : ev.title.en}
+            {orderedPlanned.map((ev, i) => {
+              const transit = i > 0 ? transitBetween(orderedPlanned[i-1], ev) : null;
+              return (
+                <div key={ev.id}>
+                  {transit && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0 6px 34px' }}>
+                      <div style={{ width: 1, height: 14, background: 'rgba(26,15,10,0.15)', marginLeft: -18 }} />
+                      <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, color: transit.tight || transit.far ? '#D94F30' : '#8A6F4A', fontWeight: 600 }}>
+                        🚇 {transit.mins} min · {transit.km} km
+                      </span>
+                      <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(lang === 'zh' ? orderedPlanned[i-1].location.zh : orderedPlanned[i-1].location.en)}&destination=${encodeURIComponent(lang === 'zh' ? ev.location.zh : ev.location.en)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 9999, background: 'rgba(217,79,48,0.1)', textDecoration: 'none' }}>
+                        <ExternalLink size={10} color="#D94F30" />
+                        <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 10, fontWeight: 700, color: '#D94F30' }}>{t('Maps', '地圖')}</span>
+                      </a>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: PIN_COLOR[ev.category] ?? '#D94F30', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 800, color: '#fff' }}>{i + 1}</div>
+                    <EventThumb ev={ev} lang={lang} size={40} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 13, fontWeight: 700, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {lang === 'zh' ? ev.title.zh : ev.title.en}
+                      </div>
+                      <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, color: '#8A6F4A', marginTop: 1 }}>
+                        {lang === 'zh' ? ev.location.zh : ev.location.en}
+                      </div>
+                    </div>
+                    <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 600, color: '#8A6F4A' }}>{`${14 + i}:00`}</span>
                   </div>
                 </div>
-                <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 600, color: '#8A6F4A' }}>
-                  {`${14 + i}:00`}
-                </span>
-              </div>
-            ))}
+              );
+            })}
 
-            <div style={{
-              marginTop: 8, padding: '10px 14px', borderRadius: 12,
-              background: 'rgba(232,176,75,0.1)', border: '1px solid rgba(232,176,75,0.25)',
-              fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 600, color: '#8A5F00',
-            }}>
-              {t(`~${estHrs} hrs · NT$${estCost} estimated · ${totalKm} km`, `約 ${estHrs} 小時 · NT$${estCost} · ${totalKm} 公里`)}
+            <div style={{ marginTop: 8, padding: '10px 14px', borderRadius: 12, background: 'rgba(232,176,75,0.1)', border: '1px solid rgba(232,176,75,0.25)', fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 600, color: '#8A5F00' }}>
+              {t(`~${estHrs} hrs · NT$${estCost} estimated · ${totalKm} km total`, `約 ${estHrs} 小時 · NT$${estCost} · ${totalKm} 公里`)}
             </div>
 
-            <button
-              onClick={() => setShowRouteModal(false)}
-              style={{
-                marginTop: 14, width: '100%', height: 50, borderRadius: 14, border: 'none', cursor: 'pointer',
-                background: '#1A1A1A', color: '#fff',
-                fontFamily: '"Plus Jakarta Sans"', fontSize: 15, fontWeight: 700,
-              }}
-            >
-              {t('Save as plan', '儲存為計畫')}
+            {/* Open full route in Google Maps */}
+            {gmUrl && (
+              <a href={gmUrl} target="_blank" rel="noopener noreferrer" style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', height: 50, borderRadius: 14, background: '#4285F4', color: '#fff', textDecoration: 'none', fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700 }}>
+                <ExternalLink size={16} color="#fff" />
+                {t('Open in Google Maps', '在 Google Maps 開啟')}
+              </a>
+            )}
+
+            {/* Share to LINE */}
+            <a href={lineUrl} target="_blank" rel="noopener noreferrer" style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', height: 50, borderRadius: 14, background: '#06C755', color: '#fff', textDecoration: 'none', fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700 }}>
+              <span style={{ fontWeight: 900, letterSpacing: -0.5 }}>LINE</span>
+              {t('Share to LINE', '分享至 LINE')}
+            </a>
+
+            <button onClick={() => setShowRouteModal(false)} style={{ marginTop: 10, width: '100%', height: 46, borderRadius: 14, border: 'none', cursor: 'pointer', background: 'rgba(26,15,10,0.07)', color: '#1A1A1A', fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700 }}>
+              {t('Close', '關閉')}
             </button>
           </div>
         </div>
