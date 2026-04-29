@@ -8,7 +8,7 @@ import { EventCard } from '../components/event/EventCard.jsx';
 import { VibeTile, VIBES } from '../components/event/VibeTile.jsx';
 import { EVENTS } from '../data/events.js';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Search, SlidersHorizontal, X } from 'lucide-react';
+import { MessageCircle, Search, SlidersHorizontal, X, Shuffle } from 'lucide-react';
 
 const NEARBY_KM = 5;
 
@@ -51,11 +51,28 @@ export default function Home() {
     return n;
   }, [filters]);
 
+  // Surprise Me: navigate to a random event not yet saved
+  const handleSurprise = useCallback(() => {
+    const candidates = EVENTS.filter(ev => !saved.has(ev.id));
+    const pool = candidates.length > 0 ? candidates : EVENTS;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    navigate(`/event/${pick.id}`);
+  }, [navigate, saved]);
+
   // Combined filtering: Nearby → sheet filters → search text
+  // For You tab: liked events surface first, then nearby, then by popularity
   const displayEvents = useMemo(() => {
     let evs = tab === 'nearby'
       ? EVENTS.filter(ev => ev.dist <= NEARBY_KM)
-      : EVENTS;
+      : [...EVENTS].sort((a, b) => {
+          const aLiked = saved.has(a.id) ? 1 : 0;
+          const bLiked = saved.has(b.id) ? 1 : 0;
+          if (bLiked !== aLiked) return bLiked - aLiked;
+          const aNear = (a.dist ?? 999) <= NEARBY_KM ? 1 : 0;
+          const bNear = (b.dist ?? 999) <= NEARBY_KM ? 1 : 0;
+          if (bNear !== aNear) return bNear - aNear;
+          return (b.savedCount ?? 0) - (a.savedCount ?? 0);
+        });
 
     // category
     if (filters.categories.length > 0) {
@@ -121,6 +138,18 @@ export default function Home() {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Surprise Me dice button */}
+            <button
+              onClick={handleSurprise}
+              title={lang === 'zh' ? '隨機探索' : 'Surprise Me'}
+              style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: 'rgba(217,79,48,0.1)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Shuffle size={16} color="#D94F30" />
+            </button>
             <button
               onClick={() => navigate('/messages')}
               style={{
@@ -287,16 +316,27 @@ export default function Home() {
           {!isFiltered && (
             <>
               <div style={{ height: 1, background: 'rgba(26,15,10,0.08)', margin: '20px 0 0' }} />
-              <p style={{
-                fontFamily: '"Plus Jakarta Sans", system-ui',
-                fontSize: 11, fontWeight: 800, letterSpacing: 1.4,
-                color: '#8A6F4A', textTransform: 'uppercase',
-                padding: '16px 20px 12px', margin: 0,
-              }}>
-                {tab === 'nearby'
-                  ? (lang === 'zh' ? '附近活動' : 'Near You')
-                  : (lang === 'zh' ? '✨ CultureFlow 精選' : '✨ CultureFlow Picks')}
-              </p>
+              <div style={{ padding: '16px 20px 4px' }}>
+                <p style={{
+                  fontFamily: '"Plus Jakarta Sans", system-ui',
+                  fontSize: 11, fontWeight: 800, letterSpacing: 1.4,
+                  color: '#8A6F4A', textTransform: 'uppercase', margin: '0 0 4px',
+                }}>
+                  {tab === 'nearby'
+                    ? (lang === 'zh' ? '附近活動' : 'Near You')
+                    : (lang === 'zh' ? '✨ CultureFlow 精選' : '✨ CultureFlow Picks')}
+                </p>
+                {tab === 'foryou' && saved.size > 0 && (
+                  <p style={{
+                    fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
+                    fontSize: 11, fontWeight: 500, color: '#B09070', margin: 0,
+                  }}>
+                    {lang === 'zh'
+                      ? '已收藏的活動優先顯示，其次為附近與熱門活動'
+                      : 'Saved events shown first, then nearby & popular picks'}
+                  </p>
+                )}
+              </div>
             </>
           )}
 
