@@ -6,7 +6,7 @@ import { FRIENDS } from '../data/mockFriends.js';
 import { LogisticsCapsule } from '../components/ui/LogisticsCapsule.jsx';
 import { Chip } from '../components/ui/Chip.jsx';
 import { ShareSheet } from '../components/ui/ShareSheet.jsx';
-import { Share2, ChevronLeft, MapPin, Users, Bookmark, UserPlus, X } from 'lucide-react';
+import { Share2, ChevronLeft, MapPin, Users, Bookmark, UserPlus, X, Sparkles, Camera, UtensilsCrossed } from 'lucide-react';
 
 // CTA bar height — scroll content stops here so it's never hidden under the bar
 const CTA_H = 82;
@@ -134,6 +134,70 @@ export default function EventDetail() {
           }}>
             {t(event.description)}
           </p>
+
+          {/* AI Highlights */}
+          {event.aiHighlights && event.aiHighlights.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <Sparkles size={14} color="#E8B04B" />
+                <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 800, color: '#8A5F00', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                  {lang === 'zh' ? 'AI 小提示' : 'AI Highlights'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {event.aiHighlights.map((tip, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', borderRadius: 10, background: 'rgba(232,176,75,0.08)', border: '1px solid rgba(232,176,75,0.18)' }}>
+                    <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>💡</span>
+                    <span style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui', fontSize: 13, fontWeight: 500, color: '#6B4C00', lineHeight: 1.4 }}>{tip}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Photo Gallery */}
+          {event.photos && event.photos.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <Camera size={14} color="#8A6F4A" />
+                <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 800, color: '#8A6F4A', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                  {lang === 'zh' ? '現場照片' : 'Photos'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', margin: '0 -20px', padding: '0 20px' }}>
+                {[event.img, ...event.photos].map((url, i) => (
+                  <div key={i} style={{ width: 160, height: 110, borderRadius: 12, flexShrink: 0, backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: '0 2px 8px rgba(26,15,10,0.12)' }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Vendors / Must-try (night markets) */}
+          {event.vendors && event.vendors.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <UtensilsCrossed size={14} color="#D94F30" />
+                <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 800, color: '#D94F30', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                  {lang === 'zh' ? '必吃推薦' : 'Must-Try Stalls'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {event.vendors.map((v, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 12, background: '#fff', boxShadow: '0 2px 8px rgba(26,15,10,0.06)' }}>
+                    <span style={{ fontSize: 24, flexShrink: 0 }}>{v.emoji}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui', fontSize: 13, fontWeight: 700, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {lang === 'zh' ? v.name.zh : v.name.en}
+                      </div>
+                      <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui', fontSize: 11, color: '#8A6F4A', marginTop: 2 }}>
+                        {lang === 'zh' ? `必吃：${v.mustTry.zh}` : `Order: ${v.mustTry.en}`}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Host row */}
           <div style={{
