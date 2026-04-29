@@ -105,12 +105,21 @@ export default function EventDetail() {
             {t(event.title)}
           </h1>
 
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16,
-            fontFamily: '"Plus Jakarta Sans", system-ui', fontSize: 14, fontWeight: 500, color: '#8A6F4A',
-          }}>
-            <MapPin size={14} color="#D94F30" />
-            {t(event.subtitle)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui', fontSize: 14, fontWeight: 500, color: '#8A6F4A' }}>
+              <MapPin size={14} color="#D94F30" />
+              {t(event.subtitle)}
+            </div>
+            {/* Quick Google Maps link */}
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lang === 'zh' ? event.location.zh : event.location.en)}`}
+              target="_blank" rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 9999, background: 'rgba(66,133,244,0.1)', textDecoration: 'none' }}
+            >
+              <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700, color: '#4285F4' }}>
+                {lang === 'zh' ? '📍 導航' : '📍 Maps'}
+              </span>
+            </a>
           </div>
 
           <div style={{ marginBottom: 16 }}>
