@@ -211,27 +211,30 @@ export default function Home() {
             )}
           </div>
 
-          {/* Filter button */}
+          {/* Filter button — red accent when any filter is active */}
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <button
               onClick={() => { setDraftFilters(filters); setSheetOpen(true); }}
               style={{
                 width: 44, height: 44, borderRadius: '50%',
-                background: filterBadgeCount > 0 ? '#1A1A1A' : 'rgba(26,15,10,0.07)',
-                border: 'none', cursor: 'pointer',
+                background: filterBadgeCount > 0 ? '#D94F30' : 'rgba(26,15,10,0.07)',
+                border: filterBadgeCount > 0 ? 'none' : '1px solid rgba(26,15,10,0.1)',
+                cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: filterBadgeCount > 0 ? '0 4px 14px rgba(217,79,48,0.4)' : 'none',
+                transition: 'all 0.2s',
               }}
             >
               <SlidersHorizontal size={17} color={filterBadgeCount > 0 ? '#fff' : '#1A1A1A'} />
             </button>
             {filterBadgeCount > 0 && (
               <div style={{
-                position: 'absolute', top: -3, right: -3,
+                position: 'absolute', top: -4, right: -4,
                 minWidth: 18, height: 18, borderRadius: 9999, padding: '0 4px',
-                background: '#D94F30', color: '#fff',
+                background: '#1A1A1A', color: '#fff',
                 fontFamily: '"Plus Jakarta Sans"', fontSize: 9, fontWeight: 800,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                pointerEvents: 'none',
+                pointerEvents: 'none', border: '1.5px solid #FAF7F2',
               }}>
                 {filterBadgeCount}
               </div>

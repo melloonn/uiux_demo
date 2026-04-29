@@ -324,9 +324,12 @@ export default function MapScreen() {
         </div>
         <div style={{ position: 'relative' }}>
           <button onClick={() => setSheetOpen(true)} style={{
-            width: 46, height: 46, borderRadius: '50%', background: '#1A1A1A', border: 'none', cursor: 'pointer',
-            boxShadow: '0 6px 20px rgba(26,15,10,0.10)',
+            width: 46, height: 46, borderRadius: '50%',
+            background: filterBadgeCount > 0 ? '#D94F30' : '#1A1A1A',
+            border: 'none', cursor: 'pointer',
+            boxShadow: filterBadgeCount > 0 ? '0 6px 20px rgba(217,79,48,0.4)' : '0 6px 20px rgba(26,15,10,0.10)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.2s',
           }}>
             <SlidersHorizontal size={18} color="#fff" />
           </button>
@@ -334,10 +337,10 @@ export default function MapScreen() {
             <div style={{
               position: 'absolute', top: -4, right: -4,
               width: 18, height: 18, borderRadius: '50%',
-              background: '#D94F30', color: '#fff',
+              background: '#1A1A1A', color: '#fff',
               fontFamily: '"Plus Jakarta Sans"', fontSize: 10, fontWeight: 800,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              pointerEvents: 'none',
+              pointerEvents: 'none', border: '1.5px solid #FAF7F2',
             }}>{filterBadgeCount}</div>
           )}
         </div>

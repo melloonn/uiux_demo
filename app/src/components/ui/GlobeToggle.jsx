@@ -18,25 +18,29 @@ export function GlobeToggle({ lang, setLang, dark = false }) {
     ? (dark ? 'rgba(255,255,255,0.25)' : '#1A1A1A')
     : (dark ? 'rgba(0,0,0,0.3)' : 'rgba(26,15,10,0.07)');
   const iconColor = (open && !dark) ? '#fff' : (dark ? '#fff' : '#1A1A1A');
+  const labelColor = dark ? 'rgba(255,255,255,0.9)' : '#1A1A1A';
   const btnBorder = dark
-    ? '1px solid rgba(255,255,255,0.15)'
-    : '1px solid rgba(26,15,10,0.1)';
+    ? '1px solid rgba(255,255,255,0.22)'
+    : '1px solid rgba(26,15,10,0.12)';
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          width: 36, height: 36, borderRadius: '50%',
+          height: 36, borderRadius: 9999, paddingLeft: 10, paddingRight: 12,
           background: btnBg,
           backdropFilter: dark ? 'blur(14px)' : 'none',
           WebkitBackdropFilter: dark ? 'blur(14px)' : 'none',
           border: btnBorder,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          display: 'flex', alignItems: 'center', gap: 5,
           cursor: 'pointer', transition: 'background 0.2s',
         }}
       >
-        <Globe size={16} color={iconColor} />
+        <Globe size={14} color={iconColor} />
+        <span style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui', fontSize: 12, fontWeight: 700, color: labelColor, letterSpacing: 0.1 }}>
+          {lang === 'zh' ? '中文' : 'EN'}
+        </span>
       </button>
 
       {open && (
