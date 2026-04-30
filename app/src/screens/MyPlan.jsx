@@ -1,4 +1,4 @@
-import { useContext, useState, useMemo, useRef, useEffect } from 'react';
+import { useContext, useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../App.jsx';
 import { TabBar } from '../components/layout/TabBar.jsx';
@@ -83,12 +83,14 @@ function buildLineShareUrl(events, lang) {
 }
 
 export default function MyPlan() {
-  const { lang, setLang, saved, planned, togglePlan } = useContext(AppContext);
+  const { lang, setLang, saved, planned, togglePlan, planSchedule, addToPlanScheduled } = useContext(AppContext);
   const navigate = useNavigate();
 
   const [activeDateKey, setActiveDateKey] = useState('today');
   const [segment, setSegment] = useState('planned'); // 'planned' | 'saved' | 'past'
   const [showRouteModal, setShowRouteModal] = useState(false);
+  const [showAutoModal, setShowAutoModal] = useState(false);
+  const [autoSuggestions, setAutoSuggestions] = useState([]);
   const [pastIds, setPastIds] = useState(new Set());
 
   // Ordered plan list — synced with planned Set, preserving drag order
@@ -107,6 +109,16 @@ export default function MyPlan() {
     () => planOrder.map(id => EVENTS.find(ev => ev.id === id)).filter(Boolean),
     [planOrder]
   );
+
+  // Filter planned events by the selected date strip tab
+  const filteredPlanned = useMemo(() => {
+    return orderedPlanned.filter(ev => {
+      const sched = planSchedule.get(ev.id);
+      if (!sched) return activeDateKey === 'today'; // unscheduled events only show on "today"
+      return sched.dateKey === activeDateKey;
+    });
+  }, [orderedPlanned, activeDateKey, planSchedule]);
+
   const savedEvents   = useMemo(() => EVENTS.filter(ev => saved.has(ev.id)), [saved]);
   const pastEvents    = useMemo(() => EVENTS.filter(ev => pastIds.has(ev.id)), [pastIds]);
 
@@ -135,15 +147,32 @@ export default function MyPlan() {
     dragOverIdx.current = null;
   };
 
-  // AI summary stats
-  const totalKm = orderedPlanned.reduce((sum, ev, i, arr) => {
+  // Auto-generate itinerary suggestions based on proximity to anchor event
+  const handleAutoGenerate = useCallback(() => {
+    const anchor = filteredPlanned[0] ?? orderedPlanned[0];
+    if (!anchor) return;
+    const pool = EVENTS.filter(ev => !planned.has(ev.id));
+    const sorted = [...pool].sort((a, b) => {
+      const da = Math.hypot((a.mapX ?? 200) - (anchor.mapX ?? 200), (a.mapY ?? 400) - (anchor.mapY ?? 400));
+      const db = Math.hypot((b.mapX ?? 200) - (anchor.mapX ?? 200), (b.mapY ?? 400) - (anchor.mapY ?? 400));
+      return da - db;
+    });
+    // Pick up to 4 nearby events, assign time slots across the day
+    const timeSlots = ['morning', 'afternoon', 'evening', 'night'];
+    const picks = sorted.slice(0, 4).map((ev, i) => ({ ev, timeSlot: timeSlots[i] ?? 'afternoon' }));
+    setAutoSuggestions(picks);
+    setShowAutoModal(true);
+  }, [filteredPlanned, orderedPlanned, planned]);
+
+  // AI summary stats (based on the current date's filtered events)
+  const totalKm = filteredPlanned.reduce((sum, ev, i, arr) => {
     if (i === 0) return 0;
     const tr = transitBetween(arr[i - 1], ev);
     return sum + (tr ? parseFloat(tr.km) : 0);
   }, 0).toFixed(1);
-  const mrtLines = Math.min(orderedPlanned.length, 2);
-  const estCost  = orderedPlanned.reduce((s, ev) => s + (ev.priceTier === 'free' ? 0 : ev.priceTier === '$' ? 150 : 350), 0);
-  const estHrs   = (orderedPlanned.length * 1.5 + parseFloat(totalKm) * 0.1).toFixed(0);
+  const mrtLines = Math.min(filteredPlanned.length, 2);
+  const estCost  = filteredPlanned.reduce((s, ev) => s + (ev.priceTier === 'free' ? 0 : ev.priceTier === '$' ? 150 : 350), 0);
+  const estHrs   = (filteredPlanned.length * 1.5 + parseFloat(totalKm) * 0.1).toFixed(0);
 
   const segments = [
     { k: 'planned', labelEn: '📌 Planned', labelZh: '📌 已計畫' },
@@ -151,8 +180,9 @@ export default function MyPlan() {
     { k: 'past',    labelEn: '✅ Past',     labelZh: '✅ 已參加' },
   ];
 
-  const gmUrl   = buildGoogleMapsUrl(orderedPlanned, lang);
-  const lineUrl = buildLineShareUrl(orderedPlanned, lang);
+  const displayList = filteredPlanned.length > 0 ? filteredPlanned : orderedPlanned;
+  const gmUrl   = buildGoogleMapsUrl(displayList, lang);
+  const lineUrl = buildLineShareUrl(displayList, lang);
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#FAF7F2' }}>
@@ -202,7 +232,7 @@ export default function MyPlan() {
           </div>
 
           {/* AI Summary card */}
-          {orderedPlanned.length > 0 && (
+          {filteredPlanned.length > 0 && (
             <div style={{
               margin: '4px 20px 16px', borderRadius: 18,
               background: 'linear-gradient(135deg, #FDF5E8 0%, rgba(232,176,75,0.12) 100%)',
@@ -217,7 +247,7 @@ export default function MyPlan() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5, paddingRight: 40 }}>
                 <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>
-                  {t(`${orderedPlanned.length} events planned`, `已規劃 ${orderedPlanned.length} 個活動`)}
+                  {t(`${filteredPlanned.length} events planned`, `已規劃 ${filteredPlanned.length} 個活動`)}
                 </div>
                 <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 500, color: '#8A5F00' }}>
                   {t(`${totalKm} km total · ${mrtLines} MRT line${mrtLines !== 1 ? 's' : ''}`, `總移動 ${totalKm} 公里 · ${mrtLines} 條捷運`)}
@@ -263,10 +293,23 @@ export default function MyPlan() {
                   {t('Browse events', '探索活動')}
                 </button>
               </div>
+            ) : filteredPlanned.length === 0 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                <p style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 14, fontWeight: 700, color: '#8A6F4A', margin: '0 0 6px' }}>
+                  {t('No events on this day', '這一天沒有活動安排')}
+                </p>
+                <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, color: '#B09070', margin: '0 0 16px' }}>
+                  {t('Add events from the plan tab or browse below', '可從活動頁面加入或點下方按鈕自動排程')}
+                </p>
+                <button onClick={handleAutoGenerate} style={{ padding: '10px 24px', borderRadius: 14, background: 'rgba(217,79,48,0.1)', color: '#D94F30', border: 'none', cursor: 'pointer', fontFamily: '"Plus Jakarta Sans"', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, margin: '0 auto' }}>
+                  <Sparkles size={14} color="#D94F30" />
+                  {t('Auto-generate itinerary', '幫我排行程')}
+                </button>
+              </div>
             ) : (
               <div style={{ padding: '0 20px' }}>
-                {orderedPlanned.map((ev, i) => {
-                  const transit = i > 0 ? transitBetween(orderedPlanned[i - 1], ev) : null;
+                {filteredPlanned.map((ev, i) => {
+                  const transit = i > 0 ? transitBetween(filteredPlanned[i - 1], ev) : null;
                   const mockTime = `${14 + i}:00`;
                   return (
                     <div key={ev.id}
@@ -298,7 +341,7 @@ export default function MyPlan() {
                             {/* Google Maps step link */}
                             {i > 0 && (
                               <a
-                                href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(lang === 'zh' ? orderedPlanned[i-1].location.zh : orderedPlanned[i-1].location.en)}&destination=${encodeURIComponent(lang === 'zh' ? ev.location.zh : ev.location.en)}`}
+                                href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(lang === 'zh' ? filteredPlanned[i-1].location.zh : filteredPlanned[i-1].location.en)}&destination=${encodeURIComponent(lang === 'zh' ? ev.location.zh : ev.location.en)}`}
                                 target="_blank" rel="noopener noreferrer"
                                 onClick={e => e.stopPropagation()}
                                 style={{ display: 'flex', alignItems: 'center', color: '#D94F30', textDecoration: 'none' }}
@@ -315,7 +358,7 @@ export default function MyPlan() {
                         {/* Time column */}
                         <div style={{ width: 36, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 4 }}>
                           <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700, color: '#D94F30' }}>{mockTime}</span>
-                          {i < orderedPlanned.length - 1 && (
+                          {i < filteredPlanned.length - 1 && (
                             <div style={{ flex: 1, width: 1, background: 'rgba(26,15,10,0.1)', marginTop: 4, minHeight: 20 }} />
                           )}
                         </div>
@@ -458,6 +501,16 @@ export default function MyPlan() {
       {/* Floating action buttons */}
       {segment === 'planned' && orderedPlanned.length > 0 && (
         <div style={{ position: 'absolute', left: 20, right: 20, bottom: 96, display: 'flex', gap: 10, zIndex: 30 }}>
+          {/* Auto-generate itinerary */}
+          <button onClick={handleAutoGenerate} style={{
+            height: 48, padding: '0 16px', borderRadius: 14, border: 'none', cursor: 'pointer',
+            background: 'rgba(217,79,48,0.1)', color: '#D94F30',
+            fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 13, fontWeight: 700,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexShrink: 0,
+          }}>
+            <Sparkles size={14} color="#D94F30" />
+            {t('Auto-plan', '幫我排行程')}
+          </button>
           <button onClick={() => setShowRouteModal(true)} style={{
             flex: 1, height: 48, borderRadius: 14, border: 'none', cursor: 'pointer',
             background: '#1A1A1A', color: '#fff',
@@ -484,6 +537,71 @@ export default function MyPlan() {
 
       <TabBar lang={lang} dark={false} />
 
+      {/* Auto-generate itinerary modal */}
+      {showAutoModal && (
+        <div onClick={() => setShowAutoModal(false)} style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: '#FAF7F2', borderRadius: '20px 20px 0 0', padding: '20px 20px 40px', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Sparkles size={16} color="#E8B04B" />
+                  <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 18, fontWeight: 800, color: '#1A1A1A' }}>{t('Suggested Itinerary', '智慧行程建議')}</span>
+                </div>
+                <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, color: '#8A6F4A', marginTop: 2 }}>{t('Based on proximity to your planned events', '依已計畫活動就近推薦')}</div>
+              </div>
+              <button onClick={() => setShowAutoModal(false)} style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(26,15,10,0.07)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={15} color="#1A1A1A" />
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', margin: '10px 0 14px' }}>
+              {['morning','afternoon','evening','night'].map(ts => {
+                const labels = { morning: { en: '☀️ Morning', zh: '☀️ 上午' }, afternoon: { en: '🌤 Afternoon', zh: '🌤 下午' }, evening: { en: '🌆 Evening', zh: '🌆 傍晚' }, night: { en: '🌙 Night', zh: '🌙 深夜' } };
+                const hasAny = autoSuggestions.some(s => s.timeSlot === ts);
+                if (!hasAny) return null;
+                return <span key={ts} style={{ padding: '3px 10px', borderRadius: 9999, background: 'rgba(26,15,10,0.07)', fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700, color: '#8A6F4A' }}>{lang === 'zh' ? labels[ts].zh : labels[ts].en}</span>;
+              })}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+              {autoSuggestions.map(({ ev, timeSlot }, i) => {
+                const color = PIN_COLOR[ev.category] ?? '#D94F30';
+                return (
+                  <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 14, background: '#fff', boxShadow: '0 2px 8px rgba(26,15,10,0.06)' }}>
+                    <EventThumb ev={ev} lang={lang} size={48} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 13, fontWeight: 800, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {lang === 'zh' ? ev.title.zh : ev.title.en}
+                      </div>
+                      <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, color: '#8A6F4A', marginTop: 2 }}>
+                        {lang === 'zh' ? ev.location.zh : ev.location.en}
+                      </div>
+                    </div>
+                    <button onClick={() => setAutoSuggestions(prev => prev.filter((_, j) => j !== i))} style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(217,79,48,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <X size={12} color="#D94F30" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {autoSuggestions.length === 0 ? (
+              <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 13, color: '#8A6F4A', textAlign: 'center', marginBottom: 16 }}>{t('All suggestions removed', '已移除所有建議')}</p>
+            ) : (
+              <button
+                onClick={() => {
+                  autoSuggestions.forEach(({ ev, timeSlot }) => addToPlanScheduled(ev.id, { dateKey: activeDateKey, timeSlot }));
+                  setShowAutoModal(false);
+                }}
+                style={{ width: '100%', height: 50, borderRadius: 14, background: '#1A1A1A', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 15, fontWeight: 800, marginBottom: 10 }}
+              >
+                {t(`Add ${autoSuggestions.length} events to plan`, `加入 ${autoSuggestions.length} 個活動到計畫`)}
+              </button>
+            )}
+            <button onClick={() => setShowAutoModal(false)} style={{ width: '100%', height: 46, borderRadius: 14, border: 'none', cursor: 'pointer', background: 'rgba(26,15,10,0.07)', color: '#1A1A1A', fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700 }}>
+              {t('Cancel', '取消')}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Generate Route Modal */}
       {showRouteModal && (
         <div onClick={() => setShowRouteModal(false)} style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end' }}>
@@ -498,8 +616,8 @@ export default function MyPlan() {
               </button>
             </div>
 
-            {orderedPlanned.map((ev, i) => {
-              const transit = i > 0 ? transitBetween(orderedPlanned[i-1], ev) : null;
+            {displayList.map((ev, i) => {
+              const transit = i > 0 ? transitBetween(displayList[i-1], ev) : null;
               return (
                 <div key={ev.id}>
                   {transit && (
@@ -508,7 +626,7 @@ export default function MyPlan() {
                       <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, color: transit.tight || transit.far ? '#D94F30' : '#8A6F4A', fontWeight: 600 }}>
                         🚇 {transit.mins} min · {transit.km} km
                       </span>
-                      <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(lang === 'zh' ? orderedPlanned[i-1].location.zh : orderedPlanned[i-1].location.en)}&destination=${encodeURIComponent(lang === 'zh' ? ev.location.zh : ev.location.en)}`}
+                      <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(lang === 'zh' ? displayList[i-1].location.zh : displayList[i-1].location.en)}&destination=${encodeURIComponent(lang === 'zh' ? ev.location.zh : ev.location.en)}`}
                         target="_blank" rel="noopener noreferrer"
                         style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 9999, background: 'rgba(217,79,48,0.1)', textDecoration: 'none' }}>
                         <ExternalLink size={10} color="#D94F30" />
