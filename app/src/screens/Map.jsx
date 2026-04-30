@@ -15,31 +15,44 @@ const MAP_PALETTE = {
   mrtRed: '#D94F30', mrtGreen: '#7FA491', mrtBlue: '#6B8AAD', mrtBrown: '#8B5E3C',
 };
 
-// Category icons — unique symbols so pins are immediately distinguishable
+// Category emoji icons — immediately recognisable
 const CAT_ICON = {
-  festivals:           '★',
-  'night-markets':     '◉',
-  'live-music':        '♫',
-  'temples-heritage':  '⊕',
-  'art-markets':       '◆',
-  exhibitions:         '▲',
+  festivals:           '🏮',
+  'night-markets':     '🍜',
+  'live-music':        '🎵',
+  'temples-heritage':  '⛩️',
+  'art-markets':       '🎨',
+  exhibitions:         '🖼️',
 };
 
-// Rough region zones derived from SVG map coordinates
-const REGIONS = [
-  { k: 'north',   en: 'North',   zh: '北部',   color: '#5B4B8A' },
-  { k: 'central', en: 'Central', zh: '中心',   color: '#D94F30' },
-  { k: 'east',    en: 'East',    zh: '東區',   color: '#E8B04B' },
-  { k: 'west',    en: 'West',    zh: '西區',   color: '#7FA491' },
+// City filter chips
+const CITIES = [
+  { k: 'taipei',    zh: '台北', color: '#D94F30' },
+  { k: 'new-taipei', zh: '新北', color: '#5B4B8A' },
+  { k: 'taoyuan',   zh: '桃園', color: '#6B8AAD' },
+  { k: 'taichung',  zh: '台中', color: '#E8B04B' },
+  { k: 'tainan',    zh: '台南', color: '#8B4A2F' },
+  { k: 'kaohsiung', zh: '高雄', color: '#4285F4' },
+  { k: 'yilan',     zh: '宜蘭', color: '#7FA491' },
+  { k: 'hualien',   zh: '花蓮', color: '#8A6F4A' },
+  { k: 'taitung',   zh: '台東', color: '#6B6B6B' },
 ];
 
-function getRegion(ev) {
-  const x = ev.mapX ?? 200;
-  const y = ev.mapY ?? 400;
-  if (y < 280) return 'north';
-  if (x < 210) return 'west';
-  if (x > 290) return 'east';
-  return 'central';
+// Pan target (SVG units) when a city chip is selected
+const CITY_PAN = {
+  'taipei':     { x: 0,   y: 0 },
+  'new-taipei': { x: 60,  y: -40 },
+  'taoyuan':    { x: 80,  y: -60 },
+  'taichung':   { x: 0,   y: -130 },
+  'tainan':     { x: 20,  y: -140 },
+  'kaohsiung':  { x: 40,  y: -140 },
+  'yilan':      { x: -120, y: 20 },
+  'hualien':    { x: -140, y: 0 },
+  'taitung':    { x: -140, y: 20 },
+};
+
+function getCity(ev) {
+  return ev.city ?? 'taipei';
 }
 
 const USER_POS = { x: 230, y: 390 };
@@ -148,8 +161,9 @@ function TaipeiMap({ lang, visibleIds, selectedId, onPinTap, pan, mapStyle }) {
               <g filter="url(#softShadow)" style={{ transform: selected ? 'scale(1.15)' : 'scale(1)', transition: 'transform 0.2s' }}>
                 <path d={`M${-size/2} ${-size/2} L${size/2} ${-size/2} Q${size/2+4} ${-size/2} ${size/2+4} ${-size/2+4} L${size/2+4} ${size/2-4} Q${size/2+4} ${size/2} ${size/2} ${size/2} L4 ${size/2} L0 ${size/2+8} L-4 ${size/2} L${-size/2} ${size/2} Q${-size/2-4} ${size/2} ${-size/2-4} ${size/2-4} L${-size/2-4} ${-size/2+4} Q${-size/2-4} ${-size/2} ${-size/2} ${-size/2} Z`}
                   fill={color} stroke="#fff" strokeWidth="2.5"/>
-                <text y="5" textAnchor="middle" fontFamily="'Plus Jakarta Sans',system-ui"
-                  fontSize="15" fontWeight="800" fill="#fff">{label}</text>
+                <text y="6" textAnchor="middle"
+                  fontFamily="'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',system-ui"
+                  fontSize="16">{label}</text>
               </g>
             </g>
           );
@@ -187,7 +201,7 @@ export default function MapScreen() {
     if (focus) setSelectedId(focus);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeCats, setActiveCats] = useState(new Set());   // empty = all categories
-  const [activeRegions, setActiveRegions] = useState(new Set()); // empty = all regions
+  const [activeCities, setActiveCities] = useState(new Set()); // empty = all cities
   const [freeOnly, setFreeOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
@@ -231,7 +245,7 @@ export default function MapScreen() {
     const q = search.trim().toLowerCase();
     return new Set(EVENTS.filter(ev => {
       if (activeCats.size > 0 && !activeCats.has(ev.category)) return false;
-      if (activeRegions.size > 0 && !activeRegions.has(getRegion(ev))) return false;
+      if (activeCities.size > 0 && !activeCities.has(getCity(ev))) return false;
       if (freeOnly && !ev.free) return false;
       if (q) {
         const hay = `${ev.title.en} ${ev.title.zh} ${ev.location?.en ?? ''} ${ev.location?.zh ?? ''}`.toLowerCase();
@@ -242,7 +256,7 @@ export default function MapScreen() {
       if (filters.categories.length > 0 && !filters.categories.includes(ev.category)) return false;
       return true;
     }).map(ev => ev.id));
-  }, [activeCats, activeRegions, freeOnly, search, filters]);
+  }, [activeCats, activeCities, freeOnly, search, filters]);
 
   const selectedEvent = EVENTS.find(ev => ev.id === selectedId && visibleIds.has(ev.id));
 
@@ -260,11 +274,20 @@ export default function MapScreen() {
     next.has(k) ? next.delete(k) : next.add(k);
     return next;
   });
-  const toggleRegion = (k) => setActiveRegions(prev => {
-    const next = new Set(prev);
-    next.has(k) ? next.delete(k) : next.add(k);
-    return next;
-  });
+  const toggleCity = (k) => {
+    setActiveCities(prev => {
+      const next = new Set(prev);
+      if (next.has(k)) {
+        next.delete(k);
+        if (next.size === 0) setPan({ x: 0, y: 0, animated: true });
+      } else {
+        next.add(k);
+        const target = CITY_PAN[k] ?? { x: 0, y: 0 };
+        setPan({ ...target, animated: true });
+      }
+      return next;
+    });
+  };
 
   const filterBadgeCount = useMemo(() => {
     let n = 0;
@@ -401,7 +424,7 @@ export default function MapScreen() {
         </button>
       </div>
 
-      {/* Region chips */}
+      {/* City chips */}
       <div style={{
         position: 'absolute', top: 154, left: 0, right: 0, zIndex: 17,
         padding: '0 14px', display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none',
@@ -411,28 +434,28 @@ export default function MapScreen() {
           fontSize: 10, fontWeight: 800, letterSpacing: 1.2, color: '#8A6F4A',
           textTransform: 'uppercase', alignSelf: 'center',
         }}>
-          {t('Area', '地區')}
+          {t('City', '城市')}
         </span>
-        {REGIONS.map(r => {
-          const active = activeRegions.has(r.k);
+        {CITIES.map(c => {
+          const active = activeCities.has(c.k);
           return (
-            <button key={r.k} onClick={() => toggleRegion(r.k)} style={{
+            <button key={c.k} onClick={() => toggleCity(c.k)} style={{
               flexShrink: 0, height: 28, padding: '0 12px', borderRadius: 9999,
-              background: active ? r.color : 'rgba(255,255,255,0.82)',
+              background: active ? c.color : 'rgba(255,255,255,0.82)',
               color: active ? '#fff' : '#5A4A35',
-              border: active ? `1.5px solid ${r.color}` : '1.5px solid rgba(26,15,10,0.1)',
+              border: active ? `1.5px solid ${c.color}` : '1.5px solid rgba(26,15,10,0.1)',
               cursor: 'pointer',
               fontFamily: '"Plus Jakarta Sans", "Noto Sans TC", system-ui',
               fontSize: 11, fontWeight: 700,
-              boxShadow: active ? `0 2px 10px ${r.color}44` : '0 2px 8px rgba(26,15,10,0.06)',
+              boxShadow: active ? `0 2px 10px ${c.color}44` : '0 2px 8px rgba(26,15,10,0.06)',
               transition: 'all 0.2s',
             }}>
-              {lang === 'zh' ? r.zh : r.en}
+              {c.zh}
             </button>
           );
         })}
-        {activeRegions.size > 0 && (
-          <button onClick={() => setActiveRegions(new Set())} style={{
+        {activeCities.size > 0 && (
+          <button onClick={() => { setActiveCities(new Set()); setPan({ x: 0, y: 0, animated: true }); }} style={{
             flexShrink: 0, height: 28, padding: '0 10px', borderRadius: 9999,
             background: 'transparent', color: '#8A6F4A',
             border: 'none', cursor: 'pointer',
