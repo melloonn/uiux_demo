@@ -8,7 +8,7 @@ import { EventCard } from '../components/event/EventCard.jsx';
 import { VibeTile, VIBES } from '../components/event/VibeTile.jsx';
 import { EVENTS } from '../data/events.js';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, Search, SlidersHorizontal, X, Shuffle } from 'lucide-react';
+import { MessageCircle, Search, SlidersHorizontal, X } from 'lucide-react';
 
 const NEARBY_KM = 5;
 
@@ -50,14 +50,6 @@ export default function Home() {
     if ((filters.show ?? 'all') !== 'all') n++;
     return n;
   }, [filters]);
-
-  // Surprise Me: navigate to a random event not yet saved
-  const handleSurprise = useCallback(() => {
-    const candidates = EVENTS.filter(ev => !saved.has(ev.id));
-    const pool = candidates.length > 0 ? candidates : EVENTS;
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    navigate(`/event/${pick.id}`);
-  }, [navigate, saved]);
 
   // Combined filtering: Nearby → sheet filters → search text
   // For You tab: liked events surface first, then nearby, then by popularity
@@ -138,18 +130,6 @@ export default function Home() {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Surprise Me dice button */}
-            <button
-              onClick={handleSurprise}
-              title={lang === 'zh' ? '隨機探索' : 'Surprise Me'}
-              style={{
-                width: 36, height: 36, borderRadius: '50%',
-                background: 'rgba(217,79,48,0.1)', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Shuffle size={16} color="#D94F30" />
-            </button>
             <button
               onClick={() => navigate('/messages')}
               style={{
@@ -250,8 +230,8 @@ export default function Home() {
           ].map(t => (
             <button key={t.k} onClick={() => setTab(t.k)} style={{
               padding: '5px 14px', borderRadius: 9999,
-              background: tab === t.k ? '#1A1A1A' : 'transparent',
-              color: tab === t.k ? '#fff' : 'rgba(26,15,10,0.55)',
+              background: tab === t.k ? '#1A1A1A' : 'rgba(26,15,10,0.05)',
+              color: tab === t.k ? '#fff' : '#1A1A1A',
               border: 'none', cursor: 'pointer',
               fontFamily: '"Plus Jakarta Sans", system-ui',
               fontSize: 12, fontWeight: 700,
