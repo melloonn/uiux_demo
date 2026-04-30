@@ -6,7 +6,34 @@ import { FRIENDS } from '../data/mockFriends.js';
 import { LogisticsCapsule } from '../components/ui/LogisticsCapsule.jsx';
 import { Chip } from '../components/ui/Chip.jsx';
 import { ShareSheet } from '../components/ui/ShareSheet.jsx';
-import { Share2, ChevronLeft, MapPin, Users, Bookmark, UserPlus, X, Sparkles, Camera, UtensilsCrossed } from 'lucide-react';
+import { Share2, ChevronLeft, MapPin, Users, Bookmark, UserPlus, X, Sparkles, Camera, UtensilsCrossed, CalendarDays } from 'lucide-react';
+
+// Build next 7 days for the plan date picker
+function buildDateStrip() {
+  const days = [];
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayNamesZh = ['日', '一', '二', '三', '四', '五', '六'];
+  const today = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    days.push({
+      key: i === 0 ? 'today' : d.toISOString().slice(0, 10),
+      dayEn: i === 0 ? 'Today' : dayNames[d.getDay()],
+      dayZh: i === 0 ? '今天' : dayNamesZh[d.getDay()],
+      dateNum: d.getDate(),
+    });
+  }
+  return days;
+}
+const DATE_STRIP = buildDateStrip();
+
+const TIME_SLOTS = [
+  { k: 'morning',   en: '☀️ Morning',   zh: '☀️ 上午', sub: '9am – 12pm' },
+  { k: 'afternoon', en: '🌤 Afternoon',  zh: '🌤 下午', sub: '12pm – 5pm' },
+  { k: 'evening',   en: '🌆 Evening',    zh: '🌆 傍晚', sub: '5pm – 9pm' },
+  { k: 'night',     en: '🌙 Night',      zh: '🌙 深夜', sub: '9pm+' },
+];
 
 // CTA bar height — scroll content stops here so it's never hidden under the bar
 const CTA_H = 82;
@@ -14,9 +41,12 @@ const CTA_H = 82;
 export default function EventDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { lang, saved, planned, toggleSave, togglePlan } = useContext(AppContext);
+  const { lang, saved, planned, toggleSave, togglePlan, addToPlanScheduled } = useContext(AppContext);
   const [shareOpen, setShareOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [planPickerOpen, setPlanPickerOpen] = useState(false);
+  const [pickerDate, setPickerDate] = useState('today');
+  const [pickerTime, setPickerTime] = useState('afternoon');
   const [toast, setToast] = useState(null);
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(null), 1600); }, []);
 
@@ -131,7 +161,7 @@ export default function EventDetail() {
           </div>
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
-            {tags.map(tag => <Chip key={tag} label={tag} />)}
+            {tags.map(tag => <Chip key={tag} label={tag} lightBg />)}
           </div>
 
           <div style={{ height: 1, background: 'rgba(26,15,10,0.08)', marginBottom: 20 }} />
@@ -266,7 +296,15 @@ export default function EventDetail() {
           <Users size={20} color="#1A1A1A" />
         </button>
         <button
-          onClick={() => togglePlan(event.id)}
+          onClick={() => {
+            if (isPlanned) {
+              togglePlan(event.id);
+            } else {
+              setPickerDate('today');
+              setPickerTime('afternoon');
+              setPlanPickerOpen(true);
+            }
+          }}
           style={{
             flex: 1, height: 50, borderRadius: 14,
             background: isPlanned ? '#E8B04B' : '#1A1A1A',
@@ -300,6 +338,99 @@ export default function EventDetail() {
           onClose={() => setShareOpen(false)}
           onToast={showToast}
         />
+      )}
+
+      {/* Plan date+time picker sheet */}
+      {planPickerOpen && (
+        <>
+          <div onClick={() => setPlanPickerOpen(false)} style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)' }} />
+          <div style={{
+            position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 51,
+            background: 'rgba(255,253,248,0.98)', backdropFilter: 'blur(24px)',
+            borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            padding: '10px 0 32px',
+            boxShadow: '0 -16px 40px rgba(26,15,10,0.18)',
+          }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(26,15,10,0.18)', margin: '6px auto 0' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CalendarDays size={18} color="#D94F30" />
+                <div>
+                  <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 16, fontWeight: 800, color: '#1A1A1A' }}>
+                    {lang === 'zh' ? '選擇日期與時段' : 'Pick a date & time'}
+                  </div>
+                  <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, color: '#8A6F4A', marginTop: 1 }}>
+                    {lang === 'zh' ? '活動將加入你的計畫行程' : 'Event will be added to your plan'}
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setPlanPickerOpen(false)} style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(26,15,10,0.07)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={14} color="#1A1A1A" />
+              </button>
+            </div>
+
+            {/* Date strip */}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', padding: '4px 20px 12px' }}>
+              {DATE_STRIP.map(d => {
+                const isActive = pickerDate === d.key;
+                return (
+                  <button key={d.key} onClick={() => setPickerDate(d.key)} style={{
+                    flexShrink: 0, minWidth: 52, padding: '8px 12px', borderRadius: 14, border: 'none', cursor: 'pointer',
+                    background: isActive ? '#D94F30' : 'rgba(26,15,10,0.06)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, transition: 'all 0.18s',
+                  }}>
+                    <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 10, fontWeight: 700, color: isActive ? 'rgba(255,255,255,0.8)' : '#8A6F4A', textTransform: 'uppercase' }}>
+                      {lang === 'zh' ? d.dayZh : d.dayEn}
+                    </span>
+                    <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 18, fontWeight: 900, color: isActive ? '#fff' : '#1A1A1A', lineHeight: 1 }}>
+                      {d.dateNum}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Time slots */}
+            <div style={{ padding: '0 20px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {TIME_SLOTS.map(ts => {
+                const isActive = pickerTime === ts.k;
+                return (
+                  <button key={ts.k} onClick={() => setPickerTime(ts.k)} style={{
+                    padding: '10px 14px', borderRadius: 12, border: 'none', cursor: 'pointer', textAlign: 'left',
+                    background: isActive ? '#1A1A1A' : 'rgba(26,15,10,0.05)',
+                    transition: 'all 0.18s',
+                  }}>
+                    <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 13, fontWeight: 700, color: isActive ? '#fff' : '#1A1A1A' }}>
+                      {lang === 'zh' ? ts.zh : ts.en}
+                    </div>
+                    <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, color: isActive ? 'rgba(255,255,255,0.6)' : '#8A6F4A', marginTop: 2 }}>
+                      {ts.sub}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Confirm */}
+            <div style={{ padding: '0 20px' }}>
+              <button
+                onClick={() => {
+                  addToPlanScheduled(event.id, { dateKey: pickerDate, timeSlot: pickerTime });
+                  setPlanPickerOpen(false);
+                  showToast(lang === 'zh' ? '已加入計畫 ✓' : 'Added to plan ✓');
+                }}
+                style={{
+                  width: '100%', height: 50, borderRadius: 14,
+                  background: '#D94F30', color: '#fff', border: 'none', cursor: 'pointer',
+                  fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 15, fontWeight: 800,
+                  boxShadow: '0 4px 20px rgba(217,79,48,0.4)',
+                }}
+              >
+                {lang === 'zh' ? '確認加入計畫' : 'Confirm & Add to Plan'}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Invite friends sheet */}

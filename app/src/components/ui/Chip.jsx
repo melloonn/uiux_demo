@@ -1,8 +1,15 @@
 // Tag chip — color-coded: jade for free, gold for trending, glass default
-export function Chip({ label, variant = 'default' }) {
+// Pass lightBg={true} when rendering on a light background (EventDetail, etc.)
+export function Chip({ label, variant = 'default', lightBg = false }) {
   const isFree = label.toLowerCase().includes('free') || label.includes('免費');
   const isTrending = label.toLowerCase().includes('trending') || label.includes('熱門');
-  const tint = isFree
+  const tint = lightBg
+    ? isFree
+      ? { bg: 'rgba(127,164,145,0.18)', border: 'rgba(127,164,145,0.45)', fg: '#1E5E3F' }
+      : isTrending
+      ? { bg: 'rgba(232,176,75,0.18)', border: 'rgba(232,176,75,0.45)', fg: '#7A5000' }
+      : { bg: 'rgba(26,15,10,0.07)', border: 'rgba(26,15,10,0.15)', fg: '#3A2E22' }
+    : isFree
     ? { bg: 'rgba(127,164,145,0.28)', border: 'rgba(127,164,145,0.55)', fg: '#CDE5D6' }
     : isTrending
     ? { bg: 'rgba(232,176,75,0.28)', border: 'rgba(232,176,75,0.55)', fg: '#FFDFA0' }
