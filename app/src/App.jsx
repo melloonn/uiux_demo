@@ -114,7 +114,7 @@ function AnimatedRoutes() {
 
 export default function App() {
   const { lang, setLang, toggle: toggleLang } = useLanguage('en');
-  const { saved, planned, toggleSave, togglePlan } = useSavedEvents();
+  const { saved, planned, toggleSave, togglePlan, planSchedule, setPlanSchedule, addToPlanScheduled } = useSavedEvents();
 
   // Chat state
   const [chats, setChats] = useState(CHATS);
@@ -155,6 +155,7 @@ export default function App() {
   const ctx = {
     lang, setLang, toggleLang,
     saved, planned, toggleSave, togglePlan,
+    planSchedule, setPlanSchedule, addToPlanScheduled,
     chats, sendMessage, clearUnread, totalUnread,
   };
   const isDesktop = typeof window !== 'undefined' && window.innerWidth > 500;
