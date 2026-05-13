@@ -1,12 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Compass, MapPin, CalendarDays, User } from 'lucide-react';
+import { Home, Tv2, MapPin, CalendarDays, User } from 'lucide-react';
 
 const TABS = [
-  { path: '/',       labelEn: 'Home',    labelZh: '首頁',  Icon: Home },
-  { path: '/vibes',  labelEn: 'Explore', labelZh: '探索',  Icon: Compass },
-  { path: '/map',    labelEn: 'Map',     labelZh: '地圖',  Icon: MapPin },
-  { path: '/plan',   labelEn: 'Plan',    labelZh: '計畫',  Icon: CalendarDays },
-  { path: '/me',     labelEn: 'Me',      labelZh: '我',    Icon: User },
+  { path: '/',      labelEn: 'Home',  labelZh: '首頁',  Icon: Home },
+  { path: '/reels', labelEn: 'Reels', labelZh: '探索',  Icon: Tv2 },
+  { path: '/map',   labelEn: 'Map',   labelZh: '地圖',  Icon: MapPin },
+  { path: '/plan',  labelEn: 'Plan',  labelZh: '計畫',  Icon: CalendarDays },
+  { path: '/me',    labelEn: 'Me',    labelZh: '我',    Icon: User },
 ];
 
 export function TabBar({ lang = 'en', dark = false }) {

@@ -13,6 +13,28 @@ import { MessageCircle, Search, SlidersHorizontal, X } from 'lucide-react';
 
 const NEARBY_KM = 5;
 
+// Mood/vibe keyword → category mapping used by the Home search bar
+const MOOD_RULES = [
+  { terms: ['開心','快樂','happy','excited','fun','joyful'],
+    cats: ['festivals','art-markets'] },
+  { terms: ['放鬆','輕鬆','chill','relax','relaxed','calm','cozy','slow'],
+    cats: ['exhibitions','art-markets'] },
+  { terms: ['戶外','outdoor','outside','nature','fresh air','walk'],
+    cats: ['festivals','temples-heritage'] },
+  { terms: ['音樂','music','live','concert','band','gig'],
+    cats: ['live-music'] },
+  { terms: ['美食','food','eat','hungry','snack','foodie','yummy'],
+    cats: ['night-markets'] },
+  { terms: ['免費','free','cheap','budget','no money','broke'],
+    free: true },
+  { terms: ['附近','nearby','close','around me','local','walking distance'],
+    nearby: true },
+  { terms: ['藝術','art','藝文','culture','creative','gallery','museum','exhibit'],
+    cats: ['exhibitions','art-markets'] },
+  { terms: ['今晚','tonight','now','today','this evening','later'],
+    tonight: true },
+];
+
 function BrandLogo() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -58,7 +80,25 @@ export default function Home() {
     return n;
   }, [filters]);
 
-  // Combined filtering: Nearby → sheet filters → search text
+  // Parse mood/vibe keywords from the search query
+  const moodMeta = useMemo(() => {
+    const lower = search.trim().toLowerCase();
+    if (!lower) return { anyMatch: false, cats: new Set(), free: false, nearby: false, tonight: false };
+    const cats = new Set();
+    let free = false, nearby = false, tonight = false, anyMatch = false;
+    for (const rule of MOOD_RULES) {
+      if (rule.terms.some(t => lower.includes(t.toLowerCase()))) {
+        anyMatch = true;
+        (rule.cats ?? []).forEach(c => cats.add(c));
+        if (rule.free)    free    = true;
+        if (rule.nearby)  nearby  = true;
+        if (rule.tonight) tonight = true;
+      }
+    }
+    return { anyMatch, cats, free, nearby, tonight };
+  }, [search]);
+
+  // Combined filtering: Nearby → sheet filters → mood keyword search
   // For You tab: liked events surface first, then nearby, then by popularity
   const displayEvents = useMemo(() => {
     let evs = tab === 'nearby'
@@ -73,7 +113,7 @@ export default function Home() {
           return (b.savedCount ?? 0) - (a.savedCount ?? 0);
         });
 
-    // category
+    // Sheet filters: category
     if (filters.categories.length > 0) {
       evs = evs.filter(ev => filters.categories.includes(ev.category));
     }
@@ -92,26 +132,36 @@ export default function Home() {
       evs = evs.filter(ev => !saved.has(ev.id));
     }
 
-    // search text
-    const q = search.trim().toLowerCase();
-    if (q) {
-      evs = evs.filter(ev => {
-        const hay = [
-          ev.title.en, ev.title.zh,
-          ev.host ?? '',
-          ev.location?.en ?? '', ev.location?.zh ?? '',
-          ...(ev.tags ?? []),
-          ...(ev.tagsZh ?? []),
-        ].join(' ').toLowerCase();
-        return hay.includes(q);
-      });
+    // Mood keyword search — only applied when at least one rule matched.
+    // No keywords matched → fall back to default feed (no filtering).
+    if (moodMeta.anyMatch) {
+      // Category union across all matched rules
+      if (moodMeta.cats.size > 0) {
+        evs = evs.filter(ev => moodMeta.cats.has(ev.category));
+      }
+      // Free filter
+      if (moodMeta.free) {
+        evs = evs.filter(ev => ev.free || ev.priceTier === 'free');
+      }
+      // Tonight: prefer events explicitly tagged as tonight/today/recurring
+      if (moodMeta.tonight) {
+        const todayEvs = evs.filter(ev => {
+          const d = (ev.date?.en ?? '').toLowerCase();
+          return d.includes('tonight') || d.includes('every') || d.includes('today');
+        });
+        if (todayEvs.length > 0) evs = todayEvs;
+      }
+      // Nearby: sort by distance ascending
+      if (moodMeta.nearby) {
+        evs = [...evs].sort((a, b) => (a.dist ?? 99) - (b.dist ?? 99));
+      }
     }
 
     return evs;
-  }, [tab, search, filters, saved]);
+  }, [tab, search, filters, saved, moodMeta]);
 
-  // Any active filter/search/nearby → show results label, hide vibe tiles
-  const isFiltered = search.trim().length > 0 || tab === 'nearby' || filterBadgeCount > 0;
+  // Any active filter/mood-keyword/nearby → show results label, hide vibe tiles
+  const isFiltered = moodMeta.anyMatch || tab === 'nearby' || filterBadgeCount > 0;
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#FAF7F2' }}>
@@ -335,8 +385,8 @@ export default function Home() {
             {displayEvents.length === 0 ? (
               <div style={{ padding: '48px 20px', textAlign: 'center' }}>
                 <p style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 15, fontWeight: 700, color: '#8A6F4A', margin: '0 0 6px' }}>
-                  {search.trim()
-                    ? (lang === 'zh' ? `「${search}」沒有結果` : `No results for "${search}"`)
+                  {moodMeta.anyMatch
+                    ? (lang === 'zh' ? `找不到符合「${search}」的活動` : `No events match "${search}"`)
                     : (lang === 'zh' ? '沒有符合的活動' : 'No events match')}
                 </p>
                 {(search.trim() || filterBadgeCount > 0) && (
