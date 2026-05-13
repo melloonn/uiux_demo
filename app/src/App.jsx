@@ -27,7 +27,7 @@ import Onboarding     from './screens/Onboarding.jsx';
 export const AppContext = createContext(null);
 
 // Tab order for determining slide direction
-const TAB_ORDER = ['/', '/reels', '/map', '/plan', '/me'];
+const TAB_ORDER = ['/', '/vibes', '/map', '/plan', '/me'];
 function tabIndex(pathname) {
   const base = '/' + pathname.split('/')[1];
   const i = TAB_ORDER.indexOf(base);
