@@ -1,13 +1,13 @@
-import { VIBE_FALLBACK } from '../../data/events.js';
+import { VIBE_FALLBACK, CATEGORY_ICON } from '../../data/events.js';
 
 const VIBES = [
-  { id: 'festivals',          labelEn: 'Festivals',     labelZh: '節慶燈會', emoji: '🏮', vibe: 'warm',  filterCat: 'festivals' },
-  { id: 'night-markets',      labelEn: 'Night Markets', labelZh: '夜市美食', emoji: '🍢', vibe: 'neon',  filterCat: 'night-markets' },
-  { id: 'live-music',         labelEn: 'Live Music',    labelZh: '現場演出', emoji: '🎸', vibe: 'night', filterCat: 'live-music' },
-  { id: 'temples-heritage',   labelEn: 'Heritage',      labelZh: '古蹟廟宇', emoji: '⛩️', vibe: 'amber', filterCat: 'temples-heritage' },
-  { id: 'art-markets',        labelEn: 'Art & Markets', labelZh: '藝文市集', emoji: '🎨', vibe: 'jade',  filterCat: 'art-markets' },
-  { id: 'exhibitions',        labelEn: 'Exhibitions',   labelZh: '展覽',     emoji: '🖼️', vibe: 'night', filterCat: 'exhibitions' },
-];
+  { id: 'festivals',          labelEn: 'Festivals',     labelZh: '節慶燈會', vibe: 'warm',  filterCat: 'festivals' },
+  { id: 'night-markets',      labelEn: 'Night Markets', labelZh: '夜市美食', vibe: 'neon',  filterCat: 'night-markets' },
+  { id: 'live-music',         labelEn: 'Live Music',    labelZh: '現場演出', vibe: 'night', filterCat: 'live-music' },
+  { id: 'temples-heritage',   labelEn: 'Heritage',      labelZh: '古蹟廟宇', vibe: 'amber', filterCat: 'temples-heritage' },
+  { id: 'art-markets',        labelEn: 'Art & Markets', labelZh: '藝文市集', vibe: 'jade',  filterCat: 'art-markets' },
+  { id: 'exhibitions',        labelEn: 'Exhibitions',   labelZh: '展覽',     vibe: 'night', filterCat: 'exhibitions' },
+].map(v => ({ ...v, emoji: CATEGORY_ICON[v.id] ?? '●' }));
 
 export { VIBES };
 

@@ -7,6 +7,16 @@ export const CATEGORY_LABEL = {
   exhibitions:          { en: 'Exhibition',  zh: '展覽' },
 };
 
+// Single source of truth for category emoji icons used on Home tiles and Map pins
+export const CATEGORY_ICON = {
+  festivals:           '🏮',
+  'night-markets':     '🍜',
+  'live-music':        '🎵',
+  'temples-heritage':  '⛩️',
+  'art-markets':       '🎨',
+  exhibitions:         '🖼️',
+};
+
 export const VIBE_FALLBACK = {
   warm:  'radial-gradient(120% 80% at 70% 20%, #F4A65C 0%, #D94F30 45%, #4A1810 100%)',
   neon:  'radial-gradient(90% 90% at 20% 80%, #E8B04B 0%, #D94F30 35%, #6B1B1A 75%, #120607 100%)',

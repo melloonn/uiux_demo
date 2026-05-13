@@ -5,7 +5,7 @@ import { AppContext } from '../App.jsx';
 import { TabBar } from '../components/layout/TabBar.jsx';
 import { EventPeek } from '../components/event/EventPeek.jsx';
 import { FilterSheet, DEFAULT_MAP_FILTERS } from '../components/ui/FilterSheet.jsx';
-import { EVENTS, PIN_COLOR } from '../data/events.js';
+import { EVENTS, PIN_COLOR, CATEGORY_ICON } from '../data/events.js';
 import { Search, SlidersHorizontal, Locate, Layers, Check, X } from 'lucide-react';
 import { GlobeToggle } from '../components/ui/GlobeToggle.jsx';
 
@@ -13,16 +13,6 @@ const MAP_PALETTE = {
   red: '#D94F30', gold: '#E8B04B', ink: '#1A1A1A', rice: '#FAF7F2',
   water: '#B8D0CC', land: '#F2E7D5', landAlt: '#ECDFC8', landDeep: '#E4D4B8',
   mrtRed: '#D94F30', mrtGreen: '#7FA491', mrtBlue: '#6B8AAD', mrtBrown: '#8B5E3C',
-};
-
-// Category emoji icons — immediately recognisable
-const CAT_ICON = {
-  festivals:           '🏮',
-  'night-markets':     '🍜',
-  'live-music':        '🎵',
-  'temples-heritage':  '⛩️',
-  'art-markets':       '🎨',
-  exhibitions:         '🖼️',
 };
 
 // City filter chips
@@ -143,7 +133,7 @@ function TaipeiMap({ lang, visibleIds, selectedId, onPinTap, pan, mapStyle }) {
           const visible = visibleIds.has(ev.id);
           const selected = selectedId === ev.id;
           const color = PIN_COLOR[ev.category] ?? '#D94F30';
-          const label = CAT_ICON[ev.category] ?? '●';
+          const label = CATEGORY_ICON[ev.category] ?? '●';
           const size = 36;
           return (
             <g key={ev.id}
@@ -403,7 +393,7 @@ export default function MapScreen() {
               boxShadow: active ? `0 4px 14px ${c.color}55` : '0 4px 12px rgba(26,15,10,0.08)',
               display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s',
             }}>
-              <span style={{ fontSize: 13 }}>{CAT_ICON[c.k]}</span>
+              <span style={{ fontSize: 13 }}>{CATEGORY_ICON[c.k]}</span>
               {c.l}
             </button>
           );
