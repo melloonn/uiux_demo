@@ -1,9 +1,10 @@
-import { useContext } from 'react';
+import { useContext, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppContext } from '../App.jsx';
 import { TabBar } from '../components/layout/TabBar.jsx';
 import { EventCard } from '../components/event/EventCard.jsx';
 import { GlobeToggle } from '../components/ui/GlobeToggle.jsx';
+import { PlanPicker } from '../components/ui/PlanPicker.jsx';
 import { EVENTS, VIBE_FALLBACK } from '../data/events.js';
 import { VIBES } from '../components/event/VibeTile.jsx';
 import { ChevronLeft } from 'lucide-react';
@@ -22,7 +23,13 @@ function filterEvents(events, vibe) {
 export default function CategoryDetail() {
   const { categoryId } = useParams();
   const navigate = useNavigate();
-  const { lang, setLang, saved, planned, toggleSave, togglePlan } = useContext(AppContext);
+  const { lang, setLang, saved, planned, toggleSave, addToPlanScheduled, planSchedule } = useContext(AppContext);
+  const [planPickerEvent, setPlanPickerEvent] = useState(null);
+
+  const handlePlanPress = useCallback((eventId) => {
+    const ev = EVENTS.find(e => e.id === eventId);
+    if (ev) setPlanPickerEvent(ev);
+  }, []);
 
   const vibe = VIBES.find(v => v.id === categoryId);
   if (!vibe) return (
@@ -132,7 +139,7 @@ export default function CategoryDetail() {
                 <EventCard
                   event={ev} lang={lang}
                   saved={saved.has(ev.id)} planned={planned.has(ev.id)}
-                  onSave={toggleSave} onPlan={togglePlan}
+                  onSave={toggleSave} onPlan={handlePlanPress}
                 />
                 {i < filteredEvents.length - 1 && (
                   <div style={{ height: 1, background: 'rgba(26,15,10,0.06)', margin: '0 20px' }} />
@@ -146,6 +153,22 @@ export default function CategoryDetail() {
       </div>
 
       <TabBar lang={lang} dark={false} />
+
+      {planPickerEvent && (
+        <PlanPicker
+          lang={lang}
+          initialDate={planSchedule.get(planPickerEvent.id)?.dateKey ?? 'today'}
+          initialTime={planSchedule.get(planPickerEvent.id)?.timeSlot ?? 'afternoon'}
+          onConfirm={({ dateKey, timeSlot }) => {
+            addToPlanScheduled(planPickerEvent.id, { dateKey, timeSlot });
+            setPlanPickerEvent(null);
+          }}
+          onClose={() => setPlanPickerEvent(null)}
+          confirmLabel={planned.has(planPickerEvent.id)
+            ? (lang === 'zh' ? '更新時間' : 'Update Schedule')
+            : undefined}
+        />
+      )}
     </div>
   );
 }

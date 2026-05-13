@@ -4,6 +4,7 @@ import { TabBar } from '../components/layout/TabBar.jsx';
 import { GlobeToggle } from '../components/ui/GlobeToggle.jsx';
 import { ShareSheet } from '../components/ui/ShareSheet.jsx';
 import { FilterSheet, DEFAULT_HOME_FILTERS } from '../components/ui/FilterSheet.jsx';
+import { PlanPicker } from '../components/ui/PlanPicker.jsx';
 import { EventCard } from '../components/event/EventCard.jsx';
 import { VibeTile, VIBES } from '../components/event/VibeTile.jsx';
 import { EVENTS } from '../data/events.js';
@@ -22,11 +23,17 @@ function BrandLogo() {
 }
 
 export default function Home() {
-  const { lang, setLang, saved, planned, toggleSave, togglePlan, totalUnread } = useContext(AppContext);
+  const { lang, setLang, saved, planned, toggleSave, togglePlan, addToPlanScheduled, planSchedule, totalUnread } = useContext(AppContext);
   const navigate = useNavigate();
   const [tab, setTab] = useState('foryou');
   const [shareEvent, setShareEvent] = useState(null);
+  const [planPickerEvent, setPlanPickerEvent] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const handlePlanPress = useCallback((eventId) => {
+    const ev = EVENTS.find(e => e.id === eventId);
+    if (ev) setPlanPickerEvent(ev);
+  }, []);
 
   // Search + filter state
   const [search, setSearch] = useState('');
@@ -351,7 +358,7 @@ export default function Home() {
                   <EventCard
                     event={ev} lang={lang}
                     saved={saved.has(ev.id)} planned={planned.has(ev.id)}
-                    onSave={toggleSave} onPlan={togglePlan}
+                    onSave={toggleSave} onPlan={handlePlanPress}
                     onShare={(e) => setShareEvent(e)}
                   />
                   {i < displayEvents.length - 1 && (
@@ -382,6 +389,23 @@ export default function Home() {
           lang={lang}
           onClose={() => setShareEvent(null)}
           onToast={showToast}
+        />
+      )}
+
+      {planPickerEvent && (
+        <PlanPicker
+          lang={lang}
+          initialDate={planSchedule.get(planPickerEvent.id)?.dateKey ?? 'today'}
+          initialTime={planSchedule.get(planPickerEvent.id)?.timeSlot ?? 'afternoon'}
+          onConfirm={({ dateKey, timeSlot }) => {
+            addToPlanScheduled(planPickerEvent.id, { dateKey, timeSlot });
+            setPlanPickerEvent(null);
+            showToast(lang === 'zh' ? '已加入計畫 ✓' : 'Added to plan ✓');
+          }}
+          onClose={() => setPlanPickerEvent(null)}
+          confirmLabel={planned.has(planPickerEvent.id)
+            ? (lang === 'zh' ? '更新時間' : 'Update Schedule')
+            : undefined}
         />
       )}
 

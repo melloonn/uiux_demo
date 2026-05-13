@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { AppContext } from '../App.jsx';
 import { TabBar } from '../components/layout/TabBar.jsx';
 import { GlobeToggle } from '../components/ui/GlobeToggle.jsx';
+import { PlanPicker, TIME_SLOT_HOURS } from '../components/ui/PlanPicker.jsx';
 import { EVENTS, PIN_COLOR, CATEGORY_LABEL, VIBE_FALLBACK } from '../data/events.js';
-import { MapPin, Train, AlertTriangle, X, Plus, Sparkles, Share2, CalendarDays, GripVertical, CheckCircle, ExternalLink } from 'lucide-react';
+import { MapPin, Train, AlertTriangle, X, Plus, Sparkles, Share2, CalendarDays, GripVertical, CheckCircle, ExternalLink, ChevronUp, ChevronDown } from 'lucide-react';
 
 // Generate 7 days from today
 function buildDateStrip() {
@@ -92,6 +93,9 @@ export default function MyPlan() {
   const [showAutoModal, setShowAutoModal] = useState(false);
   const [autoSuggestions, setAutoSuggestions] = useState([]);
   const [pastIds, setPastIds] = useState(new Set());
+  const [editPicker, setEditPicker] = useState(null); // { eventId, dateKey, timeSlot }
+  const [draggingId, setDraggingId] = useState(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState(null);
 
   // Ordered plan list — synced with planned Set, preserving drag order
   const [planOrder, setPlanOrder] = useState([]);
@@ -134,18 +138,56 @@ export default function MyPlan() {
   const dragIdx = useRef(null);
   const dragOverIdx = useRef(null);
 
-  const handleDragStart = (i) => { dragIdx.current = i; };
-  const handleDragOver  = (e, i) => { e.preventDefault(); dragOverIdx.current = i; };
-  const handleDrop      = () => {
+  const handleDragStart = (i, evId) => {
+    dragIdx.current = i;
+    setDraggingId(evId);
+  };
+  const handleDragOver = (e, i) => {
+    e.preventDefault();
+    dragOverIdx.current = i;
+    setDropTargetIdx(i);
+  };
+  const handleDrop = () => {
     if (dragIdx.current === null || dragOverIdx.current === null) return;
-    if (dragIdx.current === dragOverIdx.current) return;
-    const next = [...planOrder];
-    const [moved] = next.splice(dragIdx.current, 1);
-    next.splice(dragOverIdx.current, 0, moved);
-    setPlanOrder(next);
+    if (dragIdx.current !== dragOverIdx.current) {
+      const next = [...planOrder];
+      const fromId = filteredPlanned[dragIdx.current]?.id;
+      const toId   = filteredPlanned[dragOverIdx.current]?.id;
+      if (fromId && toId) {
+        const fromPos = next.indexOf(fromId);
+        const toPos   = next.indexOf(toId);
+        if (fromPos !== -1 && toPos !== -1) {
+          next.splice(fromPos, 1);
+          next.splice(toPos, 0, fromId);
+        }
+      }
+      setPlanOrder(next);
+    }
+    dragIdx.current = null;
+    dragOverIdx.current = null;
+    setDraggingId(null);
+    setDropTargetIdx(null);
+  };
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDropTargetIdx(null);
     dragIdx.current = null;
     dragOverIdx.current = null;
   };
+
+  // Move item up or down within the filtered (day) view
+  const moveFilteredItem = useCallback((filteredIdx, dir) => {
+    const targetIdx = filteredIdx + dir;
+    if (targetIdx < 0 || targetIdx >= filteredPlanned.length) return;
+    const id1 = filteredPlanned[filteredIdx].id;
+    const id2 = filteredPlanned[targetIdx].id;
+    const next = [...planOrder];
+    const pos1 = next.indexOf(id1);
+    const pos2 = next.indexOf(id2);
+    if (pos1 === -1 || pos2 === -1) return;
+    [next[pos1], next[pos2]] = [next[pos2], next[pos1]];
+    setPlanOrder(next);
+  }, [filteredPlanned, planOrder]);
 
   // Auto-generate itinerary suggestions based on proximity to anchor event
   const handleAutoGenerate = useCallback(() => {
@@ -256,7 +298,7 @@ export default function MyPlan() {
                   {t(`~NT$${estCost} estimated · ${estHrs} hrs`, `預估 NT$${estCost} · ${estHrs} 小時`)}
                 </div>
                 <div style={{ marginTop: 4, paddingTop: 8, borderTop: '1px solid rgba(232,176,75,0.2)', fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 600, color: '#6B4C00', fontStyle: 'italic' }}>
-                  {t('Drag rows to reorder · tap ✓ to mark attended', '拖動列重新排序 · 點 ✓ 標記已參加')}
+                  {t('Tap time to edit · ▲▼ or drag to reorder · ✓ to mark attended', '點時間修改 · ▲▼ 或拖動排序 · ✓ 標記已參加')}
                 </div>
               </div>
             </div>
@@ -310,14 +352,24 @@ export default function MyPlan() {
               <div style={{ padding: '0 20px' }}>
                 {filteredPlanned.map((ev, i) => {
                   const transit = i > 0 ? transitBetween(filteredPlanned[i - 1], ev) : null;
-                  const mockTime = `${14 + i}:00`;
+                  const sched = planSchedule.get(ev.id);
+                  const timeStr = sched ? `${TIME_SLOT_HOURS[sched.timeSlot] ?? '09'}:00` : '09:00';
+                  const isBeingDragged = draggingId === ev.id;
+                  const isDropTarget = dropTargetIdx === i && draggingId !== null && !isBeingDragged;
                   return (
                     <div key={ev.id}
                       draggable
-                      onDragStart={() => handleDragStart(i)}
+                      onDragStart={() => handleDragStart(i, ev.id)}
                       onDragOver={(e) => handleDragOver(e, i)}
                       onDrop={handleDrop}
+                      onDragEnd={handleDragEnd}
+                      style={{ opacity: isBeingDragged ? 0.5 : 1, transition: 'opacity 0.15s' }}
                     >
+                      {/* Drop target indicator */}
+                      {isDropTarget && (
+                        <div style={{ height: 3, background: '#D94F30', borderRadius: 2, margin: '4px 0' }} />
+                      )}
+
                       {/* Transit capsule */}
                       {transit && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 4px 28px' }}>
@@ -338,7 +390,6 @@ export default function MyPlan() {
                                   : t(`🚇 ${transit.mins} min · ${transit.km} km`, `🚇 ${transit.mins} 分鐘 · ${transit.km} 公里`)
                               }
                             </span>
-                            {/* Google Maps step link */}
                             {i > 0 && (
                               <a
                                 href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(lang === 'zh' ? filteredPlanned[i-1].location.zh : filteredPlanned[i-1].location.en)}&destination=${encodeURIComponent(lang === 'zh' ? ev.location.zh : ev.location.en)}`}
@@ -354,22 +405,35 @@ export default function MyPlan() {
                       )}
 
                       {/* Event row */}
-                      <div style={{ display: 'flex', gap: 12, marginBottom: 4 }}>
-                        {/* Time column */}
+                      <div style={{ display: 'flex', gap: 12, marginBottom: 4, minWidth: 0 }}>
+                        {/* Time column — tap to edit */}
                         <div style={{ width: 36, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 4 }}>
-                          <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700, color: '#D94F30' }}>{mockTime}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditPicker({ eventId: ev.id, dateKey: sched?.dateKey ?? 'today', timeSlot: sched?.timeSlot ?? 'afternoon' });
+                            }}
+                            title={t('Edit time', '修改時間')}
+                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          >
+                            <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 700, color: '#D94F30', textDecoration: 'underline dotted' }}>{timeStr}</span>
+                          </button>
                           {i < filteredPlanned.length - 1 && (
                             <div style={{ flex: 1, width: 1, background: 'rgba(26,15,10,0.1)', marginTop: 4, minHeight: 20 }} />
                           )}
                         </div>
 
-                        {/* Card */}
+                        {/* Card — Issue 2: minWidth:0 prevents overflow */}
                         <div
                           onClick={() => navigate(`/event/${ev.id}`)}
                           style={{
-                            flex: 1, background: '#fff', borderRadius: 16, padding: '12px', marginBottom: 8,
-                            boxShadow: '0 4px 14px rgba(26,15,10,0.07)',
-                            cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start',
+                            flex: 1, minWidth: 0, background: '#fff', borderRadius: 16, padding: '12px', marginBottom: 8,
+                            boxShadow: isBeingDragged
+                              ? '0 12px 32px rgba(26,15,10,0.18)'
+                              : '0 4px 14px rgba(26,15,10,0.07)',
+                            transform: isBeingDragged ? 'scale(1.02)' : 'scale(1)',
+                            cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start',
+                            transition: 'box-shadow 0.15s, transform 0.15s',
                           }}
                         >
                           {/* Drag handle */}
@@ -379,33 +443,50 @@ export default function MyPlan() {
                           >
                             <GripVertical size={16} />
                           </div>
-                          <EventThumb ev={ev} lang={lang} size={56} />
+                          <EventThumb ev={ev} lang={lang} size={52} />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 14, fontWeight: 800, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 13, fontWeight: 800, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {lang === 'zh' ? ev.title.zh : ev.title.en}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
                               <MapPin size={10} color="#8A6F4A" />
-                              <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 500, color: '#8A6F4A' }}>
+                              <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 500, color: '#8A6F4A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {lang === 'zh' ? ev.location.zh : ev.location.en}
                               </span>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                          {/* Action column */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                            {/* Move up */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); moveFilteredItem(i, -1); }}
+                              disabled={i === 0}
+                              style={{ width: 26, height: 26, borderRadius: 8, background: i === 0 ? 'transparent' : 'rgba(26,15,10,0.05)', border: 'none', cursor: i === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: i === 0 ? 0.2 : 1 }}
+                            >
+                              <ChevronUp size={13} color="#8A6F4A" />
+                            </button>
+                            {/* Move down */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); moveFilteredItem(i, 1); }}
+                              disabled={i === filteredPlanned.length - 1}
+                              style={{ width: 26, height: 26, borderRadius: 8, background: i === filteredPlanned.length - 1 ? 'transparent' : 'rgba(26,15,10,0.05)', border: 'none', cursor: i === filteredPlanned.length - 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: i === filteredPlanned.length - 1 ? 0.2 : 1 }}
+                            >
+                              <ChevronDown size={13} color="#8A6F4A" />
+                            </button>
                             {/* Mark attended */}
                             <button
                               onClick={(e) => { e.stopPropagation(); markAttended(ev.id); }}
                               title={t('Mark as attended', '標記已參加')}
-                              style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(127,164,145,0.12)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(127,164,145,0.12)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
-                              <CheckCircle size={14} color="#7FA491" />
+                              <CheckCircle size={13} color="#7FA491" />
                             </button>
                             {/* Remove */}
                             <button
                               onClick={(e) => { e.stopPropagation(); togglePlan(ev.id); }}
-                              style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(217,79,48,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(217,79,48,0.08)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
-                              <X size={13} color="#D94F30" />
+                              <X size={12} color="#D94F30" />
                             </button>
                           </div>
                         </div>
@@ -645,7 +726,7 @@ export default function MyPlan() {
                         {lang === 'zh' ? ev.location.zh : ev.location.en}
                       </div>
                     </div>
-                    <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 600, color: '#8A6F4A' }}>{`${14 + i}:00`}</span>
+                    <span style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 11, fontWeight: 600, color: '#8A6F4A' }}>{(() => { const s = planSchedule.get(ev.id); return s ? `${TIME_SLOT_HOURS[s.timeSlot] ?? '09'}:00` : '09:00'; })()}</span>
                   </div>
                 </div>
               );
@@ -674,6 +755,22 @@ export default function MyPlan() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Edit date/time picker for an existing plan item */}
+      {editPicker && (
+        <PlanPicker
+          lang={lang}
+          initialDate={editPicker.dateKey}
+          initialTime={editPicker.timeSlot}
+          onConfirm={({ dateKey, timeSlot }) => {
+            addToPlanScheduled(editPicker.eventId, { dateKey, timeSlot });
+            setEditPicker(null);
+          }}
+          onClose={() => setEditPicker(null)}
+          confirmLabel={lang === 'zh' ? '更新時間' : 'Update Schedule'}
+          zOffset={60}
+        />
       )}
     </div>
   );
