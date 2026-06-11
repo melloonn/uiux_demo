@@ -207,7 +207,7 @@ export default function ReelsFeed() {
   const [activeIdx, setActiveIdx] = useState(0);
   const [events, setEvents] = useState(EVENTS);
   const [shareEvent, setShareEvent] = useState(null);
-  const [planPickerEventId, setPlanPickerEventId] = useState(null);
+  const [planPickerEvent, setPlanPickerEvent] = useState(null);
   const [toast, setToast] = useState(null);
   const [feedTab, setFeedTab] = useState('foryou'); // 'foryou' | 'nearby'
   const scrollRef = useRef(null);
@@ -238,7 +238,8 @@ export default function ReelsFeed() {
 
   // Plan button: open scheduling modal
   const handlePlan = (eventId) => {
-    setPlanPickerEventId(eventId);
+    const ev = EVENTS.find(e => e.id === eventId);
+    if (ev) setPlanPickerEvent(ev);
   };
 
   // Map button: navigate to /map?focus=eventId
@@ -344,18 +345,18 @@ export default function ReelsFeed() {
       )}
 
       {/* Plan date+time picker sheet */}
-      {planPickerEventId && (
+      {planPickerEvent && (
         <PlanPicker
           lang={lang}
-          initialDate={planSchedule.get(planPickerEventId)?.dateKey ?? 'today'}
-          initialTime={planSchedule.get(planPickerEventId)?.timeSlot ?? 'afternoon'}
+          initialDate={planSchedule.get(planPickerEvent.id)?.dateKey ?? 'today'}
+          initialTime={planSchedule.get(planPickerEvent.id)?.timeSlot ?? (planPickerEvent.category === 'night-markets' ? 'evening' : 'morning')}
           onConfirm={({ dateKey, timeSlot }) => {
-            addToPlanScheduled(planPickerEventId, { dateKey, timeSlot });
-            setPlanPickerEventId(null);
+            addToPlanScheduled(planPickerEvent.id, { dateKey, timeSlot });
+            setPlanPickerEvent(null);
             showToast(lang === 'zh' ? '已加入計畫 ✓' : 'Added to plan ✓');
           }}
-          onClose={() => setPlanPickerEventId(null)}
-          confirmLabel={planned.has(planPickerEventId)
+          onClose={() => setPlanPickerEvent(null)}
+          confirmLabel={planned.has(planPickerEvent.id)
             ? (lang === 'zh' ? '更新時間' : 'Update Schedule')
             : undefined}
           zOffset={70}

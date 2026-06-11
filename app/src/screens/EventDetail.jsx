@@ -309,7 +309,7 @@ export default function EventDetail() {
         <PlanPicker
           lang={lang}
           initialDate={planSchedule.get(event.id)?.dateKey ?? 'today'}
-          initialTime={planSchedule.get(event.id)?.timeSlot ?? 'afternoon'}
+          initialTime={planSchedule.get(event.id)?.timeSlot ?? (event.category === 'night-markets' ? 'evening' : 'morning')}
           onConfirm={({ dateKey, timeSlot }) => {
             addToPlanScheduled(event.id, { dateKey, timeSlot });
             setPlanPickerOpen(false);

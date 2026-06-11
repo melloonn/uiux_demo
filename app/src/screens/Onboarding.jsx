@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppContext } from '../App.jsx';
 
 const INTERESTS = [
-  { k: 'festivals',        icon: '★', en: 'Festivals',    zh: '節慶活動', color: '#D94F30' },
-  { k: 'night-markets',    icon: '◉', en: 'Night Markets', zh: '夜市美食', color: '#E8B04B' },
-  { k: 'live-music',       icon: '♫', en: 'Live Music',   zh: '現場音樂', color: '#5B4B8A' },
-  { k: 'temples-heritage', icon: '⊕', en: 'Heritage',     zh: '廟宇古蹟', color: '#8B4A2F' },
-  { k: 'art-markets',      icon: '◆', en: 'Art Markets',  zh: '藝術市集', color: '#7FA491' },
-  { k: 'exhibitions',      icon: '▲', en: 'Exhibitions',  zh: '展覽藝術', color: '#6B6B6B' },
+  { k: 'festivals',        icon: '🏮', en: 'Festivals',    zh: '節慶活動', color: '#D94F30' },
+  { k: 'night-markets',    icon: '🍜', en: 'Night Markets', zh: '夜市美食', color: '#E8B04B' },
+  { k: 'live-music',       icon: '🎵', en: 'Live Music',   zh: '現場音樂', color: '#5B4B8A' },
+  { k: 'temples-heritage', icon: '⛩️', en: 'Heritage',     zh: '廟宇古蹟', color: '#8B4A2F' },
+  { k: 'art-markets',      icon: '🎨', en: 'Art Markets',  zh: '藝術市集', color: '#7FA491' },
+  { k: 'exhibitions',      icon: '🖼️', en: 'Exhibitions',  zh: '展覽藝術', color: '#6B6B6B' },
 ];
 
 const BUDGETS = [
@@ -21,8 +22,8 @@ const STEPS = ['welcome', 'interests', 'budget', 'done'];
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const { lang, setLang } = useContext(AppContext);
   const [step, setStep] = useState(0);
-  const [lang, setLang] = useState('zh');
   const [selectedInterests, setSelectedInterests] = useState(new Set());
   const [selectedBudget, setBudget] = useState(null);
 

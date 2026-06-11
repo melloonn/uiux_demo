@@ -446,7 +446,7 @@ export default function Home() {
         <PlanPicker
           lang={lang}
           initialDate={planSchedule.get(planPickerEvent.id)?.dateKey ?? 'today'}
-          initialTime={planSchedule.get(planPickerEvent.id)?.timeSlot ?? 'afternoon'}
+          initialTime={planSchedule.get(planPickerEvent.id)?.timeSlot ?? (planPickerEvent.category === 'night-markets' ? 'evening' : 'morning')}
           onConfirm={({ dateKey, timeSlot }) => {
             addToPlanScheduled(planPickerEvent.id, { dateKey, timeSlot });
             setPlanPickerEvent(null);
