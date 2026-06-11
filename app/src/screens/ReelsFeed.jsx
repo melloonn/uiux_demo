@@ -7,6 +7,7 @@ import { EVENTS, VIBE_FALLBACK } from '../data/events.js';
 import { Bookmark, CalendarDays, MapPin, Share2, ChevronUp, ChevronRight } from 'lucide-react';
 import { GlobeToggle } from '../components/ui/GlobeToggle.jsx';
 import { ShareSheet } from '../components/ui/ShareSheet.jsx';
+import { PlanPicker } from '../components/ui/PlanPicker.jsx';
 
 // Seeded shuffle so logo-tap always gives a different order
 function shuffle(arr) {
@@ -201,11 +202,12 @@ function FeedSlide({ ev, lang, active, idx, total, saved, planned, onSave, onPla
 }
 
 export default function ReelsFeed() {
-  const { lang, setLang, saved, planned, toggleSave, togglePlan } = useContext(AppContext);
+  const { lang, setLang, saved, planned, toggleSave, addToPlanScheduled, planSchedule } = useContext(AppContext);
   const navigate = useNavigate();
   const [activeIdx, setActiveIdx] = useState(0);
   const [events, setEvents] = useState(EVENTS);
-  const [shareEvent, setShareEvent] = useState(null); // event being shared
+  const [shareEvent, setShareEvent] = useState(null);
+  const [planPickerEventId, setPlanPickerEventId] = useState(null);
   const [toast, setToast] = useState(null);
   const [feedTab, setFeedTab] = useState('foryou'); // 'foryou' | 'nearby'
   const scrollRef = useRef(null);
@@ -232,6 +234,11 @@ export default function ReelsFeed() {
   // Detail button: navigate to event detail page
   const handleDetail = (eventId) => {
     navigate(`/event/${eventId}`);
+  };
+
+  // Plan button: open scheduling modal
+  const handlePlan = (eventId) => {
+    setPlanPickerEventId(eventId);
   };
 
   // Map button: navigate to /map?focus=eventId
@@ -298,7 +305,7 @@ export default function ReelsFeed() {
               ev={ev} lang={lang} active={i === activeIdx}
               idx={i} total={events.length}
               saved={saved.has(ev.id)} planned={planned.has(ev.id)}
-              onSave={toggleSave} onPlan={togglePlan}
+              onSave={toggleSave} onPlan={handlePlan}
               onMap={handleMap}
               onShare={handleShare}
               onDetail={() => handleDetail(ev.id)}
@@ -333,6 +340,25 @@ export default function ReelsFeed() {
           lang={lang}
           onClose={() => setShareEvent(null)}
           onToast={showToast}
+        />
+      )}
+
+      {/* Plan date+time picker sheet */}
+      {planPickerEventId && (
+        <PlanPicker
+          lang={lang}
+          initialDate={planSchedule.get(planPickerEventId)?.dateKey ?? 'today'}
+          initialTime={planSchedule.get(planPickerEventId)?.timeSlot ?? 'afternoon'}
+          onConfirm={({ dateKey, timeSlot }) => {
+            addToPlanScheduled(planPickerEventId, { dateKey, timeSlot });
+            setPlanPickerEventId(null);
+            showToast(lang === 'zh' ? '已加入計畫 ✓' : 'Added to plan ✓');
+          }}
+          onClose={() => setPlanPickerEventId(null)}
+          confirmLabel={planned.has(planPickerEventId)
+            ? (lang === 'zh' ? '更新時間' : 'Update Schedule')
+            : undefined}
+          zOffset={70}
         />
       )}
 

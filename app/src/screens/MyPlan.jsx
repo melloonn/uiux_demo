@@ -84,13 +84,14 @@ function buildLineShareUrl(events, lang) {
 }
 
 export default function MyPlan() {
-  const { lang, setLang, saved, planned, togglePlan, planSchedule, addToPlanScheduled } = useContext(AppContext);
+  const { lang, setLang, saved, planned, togglePlan, planSchedule, setPlanSchedule, addToPlanScheduled } = useContext(AppContext);
   const navigate = useNavigate();
 
   const [activeDateKey, setActiveDateKey] = useState('today');
   const [segment, setSegment] = useState('planned'); // 'planned' | 'saved' | 'past'
   const [showRouteModal, setShowRouteModal] = useState(false);
   const [showAutoModal, setShowAutoModal] = useState(false);
+  const [showDayFullModal, setShowDayFullModal] = useState(false);
   const [autoSuggestions, setAutoSuggestions] = useState([]);
   const [pastIds, setPastIds] = useState(new Set());
   const [editPicker, setEditPicker] = useState(null); // { eventId, dateKey, timeSlot }
@@ -175,7 +176,7 @@ export default function MyPlan() {
     dragOverIdx.current = null;
   };
 
-  // Move item up or down within the filtered (day) view
+  // Move item up or down within the filtered (day) view — also swaps time slots
   const moveFilteredItem = useCallback((filteredIdx, dir) => {
     const targetIdx = filteredIdx + dir;
     if (targetIdx < 0 || targetIdx >= filteredPlanned.length) return;
@@ -187,24 +188,84 @@ export default function MyPlan() {
     if (pos1 === -1 || pos2 === -1) return;
     [next[pos1], next[pos2]] = [next[pos2], next[pos1]];
     setPlanOrder(next);
-  }, [filteredPlanned, planOrder]);
+    // Swap the time slots so the left-side time labels follow the activity
+    setPlanSchedule(prev => {
+      const ns = new Map(prev);
+      const sched1 = ns.get(id1);
+      const sched2 = ns.get(id2);
+      if (sched1 && sched2) {
+        ns.set(id1, { ...sched1, timeSlot: sched2.timeSlot });
+        ns.set(id2, { ...sched2, timeSlot: sched1.timeSlot });
+      }
+      return ns;
+    });
+  }, [filteredPlanned, planOrder, setPlanSchedule]);
 
-  // Auto-generate itinerary suggestions based on proximity to anchor event
+  // Auto-generate itinerary suggestions with 4-activity cap and night market dedup
   const handleAutoGenerate = useCallback(() => {
+    const existingCount = filteredPlanned.length;
+
+    // Block if day already has 4 activities
+    if (existingCount >= 4) {
+      setShowDayFullModal(true);
+      return;
+    }
+
     const anchor = filteredPlanned[0] ?? orderedPlanned[0];
     if (!anchor) return;
+
+    const neededCount = 4 - existingCount;
+
+    // Time slots already occupied for this day
+    const occupiedSlots = new Set(
+      filteredPlanned.map(ev => planSchedule.get(ev.id)?.timeSlot).filter(Boolean)
+    );
+
+    // Does the current day plan already include a night market?
+    const hasNightMarket = filteredPlanned.some(ev => ev.category === 'night-markets');
+
+    // Sort unplanned events by proximity to anchor
     const pool = EVENTS.filter(ev => !planned.has(ev.id));
     const sorted = [...pool].sort((a, b) => {
       const da = Math.hypot((a.mapX ?? 200) - (anchor.mapX ?? 200), (a.mapY ?? 400) - (anchor.mapY ?? 400));
       const db = Math.hypot((b.mapX ?? 200) - (anchor.mapX ?? 200), (b.mapY ?? 400) - (anchor.mapY ?? 400));
       return da - db;
     });
-    // Pick up to 4 nearby events, assign time slots across the day
-    const timeSlots = ['morning', 'afternoon', 'evening', 'night'];
-    const picks = sorted.slice(0, 4).map((ev, i) => ({ ev, timeSlot: timeSlots[i] ?? 'afternoon' }));
+
+    const allTimeSlots = ['morning', 'afternoon', 'evening', 'night'];
+    const freeSlots = allTimeSlots.filter(ts => !occupiedSlots.has(ts));
+
+    const picks = [];
+    let nightMarketAdded = false;
+    const usedSlots = new Set();
+
+    for (const ev of sorted) {
+      if (picks.length >= neededCount) break;
+
+      const isNightMarket = ev.category === 'night-markets';
+
+      // Skip if we already have a night market (existing or just added)
+      if (isNightMarket && (hasNightMarket || nightMarketAdded)) continue;
+
+      let assignSlot;
+      if (isNightMarket) {
+        // Night markets go in evening or night slot if available
+        assignSlot = freeSlots.find(s => (s === 'evening' || s === 'night') && !usedSlots.has(s))
+          ?? freeSlots.find(s => !usedSlots.has(s));
+      } else {
+        assignSlot = freeSlots.find(s => !usedSlots.has(s));
+      }
+
+      if (!assignSlot) break;
+
+      picks.push({ ev, timeSlot: assignSlot });
+      usedSlots.add(assignSlot);
+      if (isNightMarket) nightMarketAdded = true;
+    }
+
     setAutoSuggestions(picks);
     setShowAutoModal(true);
-  }, [filteredPlanned, orderedPlanned, planned]);
+  }, [filteredPlanned, orderedPlanned, planned, planSchedule]);
 
   // AI summary stats (based on the current date's filtered events)
   const totalKm = filteredPlanned.reduce((sum, ev, i, arr) => {
@@ -678,6 +739,33 @@ export default function MyPlan() {
             )}
             <button onClick={() => setShowAutoModal(false)} style={{ width: '100%', height: 46, borderRadius: 14, border: 'none', cursor: 'pointer', background: 'rgba(26,15,10,0.07)', color: '#1A1A1A', fontFamily: '"Plus Jakarta Sans"', fontSize: 14, fontWeight: 700 }}>
               {t('Cancel', '取消')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Day-full warning modal */}
+      {showDayFullModal && (
+        <div onClick={() => setShowDayFullModal(false)} style={{ position: 'absolute', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end' }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: '#FAF7F2', borderRadius: '20px 20px 0 0', padding: '20px 20px 40px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(217,79,48,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AlertTriangle size={20} color="#D94F30" />
+              </div>
+              <div>
+                <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 17, fontWeight: 800, color: '#1A1A1A' }}>
+                  {t('Day is full!', '今天行程已滿！')}
+                </div>
+                <div style={{ fontFamily: '"Plus Jakarta Sans"', fontSize: 12, color: '#8A6F4A', marginTop: 2 }}>
+                  {t('You already have 4 activities planned for this day.', '你今天已安排了 4 個活動。')}
+                </div>
+              </div>
+            </div>
+            <p style={{ fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 13, color: '#5A4A35', margin: '0 0 18px', lineHeight: 1.5 }}>
+              {t('Want to replace an existing activity? Remove one from the list below, then run Auto-plan again.', '想替換現有活動嗎？請先從下方清單刪除一個活動，再重新執行自動排程。')}
+            </p>
+            <button onClick={() => setShowDayFullModal(false)} style={{ width: '100%', height: 50, borderRadius: 14, background: '#1A1A1A', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", "Noto Sans TC"', fontSize: 15, fontWeight: 800 }}>
+              {t('OK, got it', '知道了')}
             </button>
           </div>
         </div>

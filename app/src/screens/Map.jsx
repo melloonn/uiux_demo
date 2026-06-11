@@ -17,15 +17,15 @@ const MAP_PALETTE = {
 
 // City filter chips
 const CITIES = [
-  { k: 'taipei',    zh: '台北', color: '#D94F30' },
-  { k: 'new-taipei', zh: '新北', color: '#5B4B8A' },
-  { k: 'taoyuan',   zh: '桃園', color: '#6B8AAD' },
-  { k: 'taichung',  zh: '台中', color: '#E8B04B' },
-  { k: 'tainan',    zh: '台南', color: '#8B4A2F' },
-  { k: 'kaohsiung', zh: '高雄', color: '#4285F4' },
-  { k: 'yilan',     zh: '宜蘭', color: '#7FA491' },
-  { k: 'hualien',   zh: '花蓮', color: '#8A6F4A' },
-  { k: 'taitung',   zh: '台東', color: '#6B6B6B' },
+  { k: 'taipei',    zh: '台北', en: 'Taipei',     color: '#D94F30' },
+  { k: 'new-taipei', zh: '新北', en: 'New Taipei', color: '#5B4B8A' },
+  { k: 'taoyuan',   zh: '桃園', en: 'Taoyuan',    color: '#6B8AAD' },
+  { k: 'taichung',  zh: '台中', en: 'Taichung',   color: '#E8B04B' },
+  { k: 'tainan',    zh: '台南', en: 'Tainan',     color: '#8B4A2F' },
+  { k: 'kaohsiung', zh: '高雄', en: 'Kaohsiung',  color: '#4285F4' },
+  { k: 'yilan',     zh: '宜蘭', en: 'Yilan',      color: '#7FA491' },
+  { k: 'hualien',   zh: '花蓮', en: 'Hualien',    color: '#8A6F4A' },
+  { k: 'taitung',   zh: '台東', en: 'Taitung',    color: '#6B6B6B' },
 ];
 
 // Pan target (SVG units) when a city chip is selected
@@ -440,7 +440,7 @@ export default function MapScreen() {
               boxShadow: active ? `0 2px 10px ${c.color}44` : '0 2px 8px rgba(26,15,10,0.06)',
               transition: 'all 0.2s',
             }}>
-              {c.zh}
+              {lang === 'zh' ? c.zh : c.en}
             </button>
           );
         })}

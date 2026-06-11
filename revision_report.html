@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CultureFlow · Revision Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+
+  <style>
+    /* ─── CSS variables ─── */
+    :root {
+      --bg-dark:          #1A1612;
+      --accent:           #E8472A;
+      --amber:            #F5A623;
+      --cream:            #F7F3EE;
+      --white:            #FFFFFF;
+      --text-dark:        #1A1612;
+      --text-muted:       #7A6855;
+      --cream-faint:      rgba(247, 243, 238, 0.45);
+      --cream-semi:       rgba(247, 243, 238, 0.72);
+      --border-dark:      rgba(247, 243, 238, 0.10);
+      --border-light:     rgba(26, 22, 18, 0.07);
+      --green:            #38875A;
+      --red-tint-bg:      rgba(232, 71, 42, 0.055);
+      --red-tint-border:  rgba(232, 71, 42, 0.14);
+      --green-tint-bg:    rgba(56, 135, 90, 0.055);
+      --green-tint-border:rgba(56, 135, 90, 0.14);
+      --font-serif:       'DM Serif Display', Georgia, serif;
+      --font-sans:        'DM Sans', system-ui, sans-serif;
+      --radius-card:      20px;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-dark);
+      color: var(--cream);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ══════════════════════════════════
+       HERO
+    ══════════════════════════════════ */
+
+    .hero {
+      background: var(--bg-dark);
+      padding: 76px 60px 72px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* subtle radial glows */
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -220px; right: -220px;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(232,71,42,.10) 0%, transparent 68%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -120px; left: -120px;
+      width: 440px; height: 440px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(245,166,35,.07) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-title {
+      font-family: var(--font-serif);
+      font-size: clamp(60px, 9.5vw, 108px);
+      line-height: 0.93;
+      font-weight: 400;
+      color: var(--cream);
+      margin-bottom: 10px;
+    }
+
+    .hero-subtitle {
+      font-family: var(--font-serif);
+      font-size: clamp(46px, 7.2vw, 82px);
+      font-style: italic;
+      font-weight: 400;
+      color: var(--amber);
+      line-height: 1.05;
+      margin-bottom: 44px;
+    }
+
+    /* ══════════════════════════════════
+       MAIN CONTENT
+    ══════════════════════════════════ */
+
+    .main {
+      background: var(--cream);
+      padding: 84px 60px 100px;
+    }
+
+    .main-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .section-h {
+      font-family: var(--font-serif);
+      font-size: clamp(38px, 5.2vw, 56px);
+      color: var(--text-dark);
+      font-weight: 400;
+      line-height: 1.06;
+      margin-bottom: 12px;
+    }
+
+    .section-sub {
+      font-size: 16px;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-bottom: 56px;
+      max-width: 530px;
+    }
+
+    /* ── chip grid ── */
+
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 64px;
+    }
+
+    .chip {
+      background: var(--white);
+      border: 1.5px solid var(--border-light);
+      border-radius: 14px;
+      padding: 14px 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      transition: border-color .17s, transform .17s, box-shadow .17s;
+    }
+    .chip:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(232,71,42,.13);
+    }
+
+    .chip-n {
+      font-family: var(--font-serif);
+      font-size: 20px;
+      color: var(--accent);
+      line-height: 1;
+      flex-shrink: 0;
+      padding-top: 1px;
+    }
+
+    .chip-body { flex: 1; min-width: 0; }
+
+    .chip-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 4px;
+    }
+
+    .chip-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.42;
+    }
+
+    /* ── accordion ── */
+
+    .cards { display: flex; flex-direction: column; gap: 10px; }
+
+    .card {
+      background: var(--white);
+      border-radius: var(--radius-card);
+      border: 1.5px solid var(--border-light);
+      box-shadow: 0 2px 8px rgba(26,22,18,.04);
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity .4s ease, transform .4s ease, box-shadow .22s ease;
+    }
+    .card.visible { opacity: 1; transform: translateY(0); }
+    .card:hover   { box-shadow: 0 10px 32px rgba(26,22,18,.09); }
+
+    /* header row */
+    .card-hd {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 24px 28px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .card-icon {
+      font-size: 28px;
+      line-height: 1;
+      width: 44px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .card-meta { flex: 1; min-width: 0; }
+
+    .card-area {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 2.2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .card-title {
+      font-family: var(--font-serif);
+      font-size: 23px;
+      color: var(--text-dark);
+      font-weight: 400;
+      line-height: 1.15;
+    }
+
+    /* chevron button */
+    .card-chevron {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: rgba(26,22,18,.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background .2s;
+    }
+    .card-chevron svg {
+      display: block;
+      transition: transform .26s ease;
+    }
+    .card-chevron .ch-path {
+      stroke: var(--text-muted);
+      transition: stroke .2s;
+    }
+    .card.open .card-chevron           { background: var(--accent); }
+    .card.open .card-chevron svg       { transform: rotate(180deg); }
+    .card.open .card-chevron .ch-path  { stroke: #fff; }
+
+    /* body panel */
+    .card-bd {
+      display: none;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      padding: 0 28px 28px;
+    }
+    .card.open .card-bd { display: grid; }
+
+    /* two-column panels */
+    .panel {
+      border-radius: 14px;
+      padding: 20px 22px;
+    }
+    .panel-fb {
+      background: var(--red-tint-bg);
+      border: 1px solid var(--red-tint-border);
+    }
+    .panel-done {
+      background: var(--green-tint-bg);
+      border: 1px solid var(--green-tint-border);
+    }
+
+    .panel-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .panel-fb   .panel-label { color: var(--accent); }
+    .panel-done .panel-label { color: var(--green); }
+
+    .panel-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .panel-fb   .panel-dot { background: var(--accent); }
+    .panel-done .panel-dot { background: var(--green); }
+
+    .blist {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .blist li {
+      font-size: 13.5px;
+      line-height: 1.52;
+      color: #2C2218;
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+    }
+    .bm {
+      flex-shrink: 0;
+      font-weight: 700;
+      margin-top: .5px;
+    }
+    .panel-fb   .bm { color: var(--accent); }
+    .panel-done .bm { color: var(--green);  }
+
+    /* ══════════════════════════════════
+       FOOTER
+    ══════════════════════════════════ */
+
+    .footer {
+      background: var(--bg-dark);
+      border-top: 1px solid rgba(247,243,238,.06);
+      padding: 30px 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .footer span {
+      font-size: 12px;
+      color: rgba(247,243,238,.28);
+      letter-spacing: .2px;
+    }
+
+    /* ══════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════ */
+
+    @media (max-width: 960px) {
+      .chips { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (max-width: 680px) {
+      .hero, .main { padding-left: 24px; padding-right: 24px; }
+      .hero { padding-top: 52px; padding-bottom: 64px; }
+      .main { padding-top: 60px; padding-bottom: 76px; }
+
+
+      .chips { grid-template-columns: repeat(2, 1fr); }
+
+      .card.open .card-bd { grid-template-columns: 1fr; }
+
+      .footer { flex-direction: column; gap: 8px; text-align: center; padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ HERO ══ -->
+<section class="hero">
+  <div class="hero-inner">
+
+    <h1 class="hero-title">CultureFlow</h1>
+    <h2 class="hero-subtitle">Revision Report</h2>
+
+  </div>
+</section>
+
+<!-- ══ MAIN ══ -->
+<section class="main">
+  <div class="main-inner">
+
+    <p class="eyebrow">Iteration Log</p>
+    <h3 class="section-h">What We Changed</h3>
+    <p class="section-sub">Ten areas of the prototype revised based on user-testing feedback from our four personas.</p>
+
+    <div class="chips" id="chips"></div>
+    <div class="cards" id="cards"></div>
+
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer class="footer">
+  <span>CultureFlow &nbsp;·&nbsp; Group 5 &nbsp;·&nbsp; HCI Final Project</span>
+  <span>May 15, 2026 &nbsp;·&nbsp; 15:55 – 16:10 Online Review</span>
+</footer>
+
+<script>
+const DATA = [
+  {
+    num: '01', icon: '📱', title: 'Reels',
+    chip: 'Clarified icon meaning, tap targets & CJK rendering',
+    fb: [
+      'Heart icon mistaken for "like", not save',
+      'Tapping a Reel didn\'t navigate to event detail',
+      'Chinese text rendered incorrectly in the overlay',
+    ],
+    done: [
+      'Replaced heart with bookmark icon throughout',
+      'Full card tap now navigates to event detail screen',
+      'Added "Tap for details" hint overlay on each Reel',
+      'Applied Noto Sans TC for correct CJK rendering',
+    ],
+  },
+  {
+    num: '02', icon: '🗺️', title: 'Map',
+    chip: 'Emoji pins, multi-select filters & city chips with auto-pan',
+    fb: [
+      'Only one category filter was selectable at a time',
+      'Letter-based pins caused visual duplicates (e.g. two "F" pins)',
+      'North/Central/East/West region labels didn\'t match user mental model',
+      'Users wanted city-level browsing (台南, 台中, etc.)',
+    ],
+    done: [
+      'Multi-select category filters with a Clear chip button',
+      'Emoji pins (🏮 🍜 🎵 ⛩️ 🎨 🖼️) unified with Home via shared config',
+      'City chips — 台北, 台中, 台南, 高雄… — with animated auto-pan',
+      'Added events representing 台南, 台中 and 高雄',
+    ],
+  },
+  {
+    num: '03', icon: '✨', title: 'Recommendations',
+    chip: 'Transparent ranking: Saved → Nearby → Popular',
+    fb: [
+      'Unclear why specific events were being recommended',
+      'Saved events should rank higher in the main feed',
+      'Nearby events should be prioritised over distant ones',
+    ],
+    done: [
+      'Rebuilt ranking algorithm: Saved → Nearby → Popularity order',
+      'Added algorithm-explanation label in the For You feed header',
+      'Added Shuffle button on the Explore tab for serendipitous discovery',
+    ],
+  },
+  {
+    num: '04', icon: '📅', title: 'Plan',
+    chip: 'Picker-first add, correct time display, inline edit & drag UX',
+    fb: [
+      'Quick-add from Home shortcut defaulted to 14:00 without asking',
+      'Plan event cards overflowed off the right edge of the screen',
+      'Time picker selection was ignored — always displayed 14:00',
+      'No way to edit the date or time after adding to plan',
+      'Revisiting event detail reset (i.e. removed) the existing booking',
+      'Drag-to-reorder was awkward and used wrong array indices',
+    ],
+    done: [
+      'All Add-to-Plan entry points now open the date & time picker first',
+      'Fixed card layout overflow by adding minWidth: 0 to flex items',
+      'Time label reflects actual slot (morning → 09:00, afternoon → 12:00, evening → 17:00, night → 21:00)',
+      'Tap the underlined time label on any plan card to edit inline',
+      'Event detail now shows "已加入計畫 · 修改時間" and never removes the booking',
+      'Visual lift + red drop-indicator on drag; ▲▼ fallback reorder buttons added',
+    ],
+  },
+  {
+    num: '05', icon: '🤖', title: 'Auto Itinerary',
+    chip: 'One-tap AI full-day schedule anchored to your chosen event',
+    fb: [
+      'Users want to pick one event and receive a full-day itinerary around it',
+      'Nearby activities should fill remaining time slots automatically',
+    ],
+    done: [
+      'Added "幫我排行程" AI button on the Plan page',
+      'Anchors on the first planned event, ranks suggestions by proximity',
+      'Arranges picks into morning → afternoon → evening time slots',
+      'User can accept, remove or reorder suggestions before confirming',
+    ],
+  },
+  {
+    num: '06', icon: '👥', title: 'Social',
+    chip: 'LINE sharing first; friend invites on events & plans',
+    fb: [
+      'No need for in-app chat — users already coordinate on LINE',
+      'Friends should be able to join a saved or planned event',
+    ],
+    done: [
+      'LINE share is now the primary option in the share sheet',
+      'Invite Friends bottom sheet available on both events and plans',
+      'Bookmark icon replaces heart on the Event Detail CTA bar',
+    ],
+  },
+  {
+    num: '07', icon: '🌱', title: 'Onboarding',
+    chip: '4-step preference survey seeds the first recommendation set',
+    fb: [
+      'Users had to explore extensively before seeing relevant events',
+      'A preference survey at launch would help personalise the initial feed',
+    ],
+    done: [
+      '4-step flow: Welcome → Interests → Budget → Done',
+      'Answers seed the initial event ranking and For You feed',
+      'localStorage gate ensures the survey appears only once per device',
+    ],
+  },
+  {
+    num: '08', icon: '🎭', title: 'Event Detail',
+    chip: 'WCAG contrast fix, AI highlights, gallery & vendor listings',
+    fb: [
+      'Body text too light — users had to highlight text to read it',
+      'Event pages needed more contextual and practical information',
+      'Night market pages should list individual vendor stalls',
+    ],
+    done: [
+      'Fixed text contrast ratios to meet WCAG AA standard throughout',
+      'AI Highlights section with curated insider tips per event',
+      'Horizontal scrollable photo gallery strip below the description',
+      'Must-Try Stalls section added for Raohe, Shilin and Ningxia markets',
+    ],
+  },
+  {
+    num: '09', icon: '🎲', title: 'Mood Discovery',
+    chip: 'Keyword mood input replaces the ineffective shuffle button',
+    fb: [
+      'Users who don\'t know what they want need a mood/keyword input mode',
+      'The shuffle button in the main header was confusing and rarely used',
+    ],
+    done: [
+      'Removed the shuffle icon from the main home header',
+      'Added VibeDiscovery screen with keyword input ("現在什麼心情？")',
+      '8 quick-pick mood chips: Free, Tonight, Food, Art, Outdoor, Music, Nearby, Popular',
+      '"Surprise Me" dice button for a fully serendipitous pick',
+      'Home filter tabs restyled to black-on-white for clearer active state',
+    ],
+  },
+  {
+    num: '10', icon: '🌐', title: 'Language & Filter UI',
+    chip: 'Language pill label; active filters turn red with glow',
+    fb: [
+      'Language toggle was hard to find — icon only, no visible text label',
+      'Active and inactive filter chips looked virtually identical',
+    ],
+    done: [
+      'GlobeToggle now renders the current language as a pill label (e.g. "中文")',
+      'Active filter buttons turn accent red with a soft coloured glow shadow',
+    ],
+  },
+];
+
+/* ── build chips ── */
+const chipsEl = document.getElementById('chips');
+DATA.forEach((d, i) => {
+  const el = document.createElement('div');
+  el.className = 'chip';
+  el.title = `Jump to Area ${d.num}: ${d.title}`;
+  el.innerHTML = `
+    <div class="chip-n">${d.num}</div>
+    <div class="chip-body">
+      <div class="chip-title">${d.icon} ${d.title}</div>
+      <div class="chip-desc">${d.chip}</div>
+    </div>`;
+  el.addEventListener('click', () => {
+    const cards = document.querySelectorAll('.card');
+    const target = cards[i];
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!target.classList.contains('open')) toggle(target);
+  });
+  chipsEl.appendChild(el);
+});
+
+/* ── toggle helper ── */
+function toggle(card) { card.classList.toggle('open'); }
+
+/* ── build accordion cards ── */
+const cardsEl = document.getElementById('cards');
+DATA.forEach((d, i) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.style.transitionDelay = `${i * 0.045}s`;
+
+  const fbItems   = d.fb  .map(t => `<li><span class="bm">–</span><span>${t}</span></li>`).join('');
+  const doneItems = d.done.map(t => `<li><span class="bm">✓</span><span>${t}</span></li>`).join('');
+
+  card.innerHTML = `
+    <div class="card-hd">
+      <div class="card-icon">${d.icon}</div>
+      <div class="card-meta">
+        <div class="card-area">AREA ${d.num}</div>
+        <div class="card-title">${d.title}</div>
+      </div>
+      <div class="card-chevron">
+        <svg width="14" height="9" viewBox="0 0 14 9" fill="none">
+          <path class="ch-path" d="M1 1L7 7.5L13 1"
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+    </div>
+    <div class="card-bd">
+      <div class="panel panel-fb">
+        <div class="panel-label"><span class="panel-dot"></span>User Feedback</div>
+        <ul class="blist">${fbItems}</ul>
+      </div>
+      <div class="panel panel-done">
+        <div class="panel-label"><span class="panel-dot"></span>What We Did</div>
+        <ul class="blist">${doneItems}</ul>
+      </div>
+    </div>`;
+
+  card.querySelector('.card-hd').addEventListener('click', () => toggle(card));
+  cardsEl.appendChild(card);
+});
+
+/* open first card by default */
+const first = cardsEl.querySelector('.card');
+if (first) first.classList.add('open');
+
+/* ── staggered fade-up via IntersectionObserver ── */
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      /* clear delay after entrance so hover transitions are instant */
+      setTimeout(() => { e.target.style.transitionDelay = ''; }, 600);
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.04, rootMargin: '0px 0px -24px 0px' });
+
+document.querySelectorAll('.card').forEach(c => io.observe(c));
+</script>
+</body>
+</html>
