@@ -66,7 +66,7 @@ export default function Onboarding() {
           onClick={() => setLang(l => l === 'zh' ? 'en' : 'zh')}
           style={{ padding: '5px 12px', borderRadius: 9999, background: 'rgba(26,15,10,0.07)', border: 'none', cursor: 'pointer', fontFamily: '"Plus Jakarta Sans"', fontSize: 12, fontWeight: 700, color: '#1A1A1A' }}
         >
-          {lang === 'zh' ? '🇬🇧 EN' : '🇹🇼 中文'}
+          {lang === 'zh' ? '🇹🇼 中文' : '🇬🇧 EN'}
         </button>
       </div>
 

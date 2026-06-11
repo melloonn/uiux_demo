@@ -115,12 +115,20 @@ export default function MyPlan() {
     [planOrder]
   );
 
-  // Filter planned events by the selected date strip tab
+  // Time slot sort order: morning → afternoon → evening → night
+  const TIME_SLOT_ORDER = { morning: 0, afternoon: 1, evening: 2, night: 3 };
+
+  // Filter planned events by the selected date strip tab, then sort chronologically
   const filteredPlanned = useMemo(() => {
-    return orderedPlanned.filter(ev => {
+    const filtered = orderedPlanned.filter(ev => {
       const sched = planSchedule.get(ev.id);
       if (!sched) return activeDateKey === 'today'; // unscheduled events only show on "today"
       return sched.dateKey === activeDateKey;
+    });
+    return [...filtered].sort((a, b) => {
+      const sa = TIME_SLOT_ORDER[planSchedule.get(a.id)?.timeSlot ?? 'morning'] ?? 0;
+      const sb = TIME_SLOT_ORDER[planSchedule.get(b.id)?.timeSlot ?? 'morning'] ?? 0;
+      return sa - sb;
     });
   }, [orderedPlanned, activeDateKey, planSchedule]);
 
@@ -249,14 +257,13 @@ export default function MyPlan() {
 
       let assignSlot;
       if (isNightMarket) {
-        // Night markets go in evening or night slot if available
-        assignSlot = freeSlots.find(s => (s === 'evening' || s === 'night') && !usedSlots.has(s))
-          ?? freeSlots.find(s => !usedSlots.has(s));
+        // Night markets must go in evening or night slot; skip if neither is available
+        assignSlot = freeSlots.find(s => (s === 'evening' || s === 'night') && !usedSlots.has(s));
+        if (!assignSlot) continue;
       } else {
         assignSlot = freeSlots.find(s => !usedSlots.has(s));
+        if (!assignSlot) break;
       }
-
-      if (!assignSlot) break;
 
       picks.push({ ev, timeSlot: assignSlot });
       usedSlots.add(assignSlot);
